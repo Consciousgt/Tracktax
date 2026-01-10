@@ -222,11 +222,11 @@
                     {/* Dashboard Header */}
                     <div className="glass-header p-6 flex flex-col md:flex-row gap-6 items-center shrink-0">
                         <div className="flex-1 w-full grid grid-cols-2 md:grid-cols-5 gap-4">
-                            <StatCard label="Total Revenue" value={stats.revenue} color="emerald" isPrice icon="💰" />
-                            <StatCard label="Net Profit" value={stats.netProfit} color="blue" isPrice icon="📈" />
-                            <StatCard label="COGS" value={stats.cogs} color="amber" isPrice icon="📦" />
-                            <StatCard label="Expenses" value={stats.expenses} color="rose" isPrice icon="💸" />
-                            <StatCard label="Low Stock" value={stats.lowStock} color="orange" icon="⚠️" />
+                            <AnalyticsCard label="Revenue" value={stats.revenue} sub="Top Line" color="emerald" isPrice icon="💰" />
+                            <AnalyticsCard label="Net Profit" value={stats.netProfit} sub="Take Home" color="blue" isPrice icon="📈" />
+                            <AnalyticsCard label="COGS" value={stats.cogs} sub="Stock Cost" color="amber" isPrice icon="📦" />
+                            <AnalyticsCard label="Expenses" value={stats.expenses} sub="Overhead" color="rose" isPrice icon="💸" />
+                            <AnalyticsCard label="Low Stock" value={stats.lowStock} sub="Alerts" color="orange" isPrice={false} icon="⚠️" />
                         </div>
                         <div className="flex gap-3">
                             <button onClick={() => setSession('auth')} className="p-3 bg-gray-100 rounded-xl hover:bg-gray-200 transition-colors" title="Lock System">🔒</button>
