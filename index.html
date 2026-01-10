@@ -138,7 +138,11 @@
 
         const DB_KEY = 'tax_master_v5';
         const DataService = {
-            load: () => JSON.parse(localStorage.getItem(DB_KEY)) || { products: [], sales: [], expenses: [], business: { name: '', pin: null } },
+            load: () => {
+                const defaults = { products: [], sales: [], expenses: [], restocks: [], business: { name: '', pin: null } };
+                const saved = JSON.parse(localStorage.getItem(DB_KEY)) || {};
+                return { ...defaults, ...saved };
+            },
             save: (data) => localStorage.setItem(DB_KEY, JSON.stringify(data))
         };
 
@@ -177,7 +181,6 @@
         // --- MAIN APP ---
         const App = () => {
             const [session, setSession] = useState('auth');
-            const [activeTab, setActiveTab] = useState('inventory');
             const [data, setData] = useState(DataService.load());
 
             useEffect(() => {
@@ -186,48 +189,55 @@
 
             const stats = useMemo(() => {
                 const revenue = data.sales.reduce((sum, s) => sum + (Number(s.price) * Number(s.qty) || 0), 0);
-
-                // COGS: Only count cost for items actually sold
                 const cogs = data.sales.reduce((sum, s) => {
                     const prod = data.products.find(p => p.id == s.productId);
-                    const costPerUnit = Number(prod?.cost) || 0;
-                    return sum + (costPerUnit * (Number(s.qty) || 0));
+                    return sum + ((Number(prod?.cost) || 0) * (Number(s.qty) || 0));
                 }, 0);
 
-                const expenses = data.expenses.reduce((sum, e) => sum + (Number(e.amount) || 0), 0);
+                const expenses = (data.expenses || []).reduce((sum, e) => sum + (Number(e.amount) || 0), 0);
                 const netProfit = revenue - cogs - expenses;
 
-                // Inventory Value: Based on current stock
-                const inventoryValue = data.products.reduce((sum, p) => {
-                    const soldQty = data.sales.filter(s => s.productId == p.id).reduce((sSum, s) => sSum + (Number(s.qty) || 0), 0);
-                    const currentStock = (Number(p.stock) || 0) - soldQty;
-                    return sum + (currentStock * (Number(p.cost) || 0));
-                }, 0);
+                const lowStockCount = data.products.filter(p => {
+                    const totalStock = (Number(p.stock) || 0) + (data.restocks || []).filter(r => r.productId == p.id).reduce((sum, r) => sum + Number(r.qty), 0);
+                    const soldQty = data.sales.filter(s => s.productId == p.id).reduce((sum, s) => sum + Number(s.qty), 0);
+                    return totalStock > 0 && (soldQty >= 0.8 * totalStock);
+                }).length;
 
-                return {
-                    revenue,
-                    cogs,
-                    expenses,
-                    netProfit,
-                    inventoryValue,
-                    lowStock: data.products.filter(p => {
-                        const soldQty = data.sales.filter(s => s.productId == p.id).reduce((sSum, s) => sSum + (Number(s.qty) || 0), 0);
-                        return ((Number(p.stock) || 0) - soldQty) < 10;
-                    }).length
-                };
+                return { revenue, cogs, expenses, netProfit, lowStockCount };
             }, [data]);
 
-            const getStockLevel = (productId) => {
+            const getStockMetrics = (productId) => {
                 const prod = data.products.find(p => p.id == productId);
-                if (!prod) return 0;
-                const soldQty = data.sales.filter(s => s.productId == productId).reduce((sum, s) => sum + (Number(s.qty) || 0), 0);
-                return (Number(prod.stock) || 0) - soldQty;
+                const initial = Number(prod?.stock) || 0;
+                const restocked = (data.restocks || []).filter(r => r.productId == productId).reduce((sum, r) => sum + Number(r.qty), 0);
+                const total = initial + restocked;
+                const sold = data.sales.filter(s => s.productId == productId).reduce((sum, s) => sum + Number(s.qty), 0);
+                const current = total - sold;
+                const isAlert = total > 0 && (sold >= 0.8 * total);
+                return { initial, restocked, total, sold, current, isAlert };
+            };
+
+            const handleRestock = (productId, qty) => {
+                const amount = Number(qty);
+                if (isNaN(amount) || amount <= 0) return;
+
+                const newRestock = {
+                    id: Date.now(),
+                    productId,
+                    qty: amount,
+                    date: new Date().toLocaleString()
+                };
+
+                setData(prev => ({
+                    ...prev,
+                    restocks: [...(prev.restocks || []), newRestock]
+                }));
             };
 
             const updateRow = (sheet, id, field, value) => {
                 setData(prev => ({
                     ...prev,
-                    [sheet]: prev[sheet].map(row => row.id === id ? { ...row, [field]: value } : row)
+                    [sheet]: (prev[sheet] || []).map(row => row.id === id ? { ...row, [field]: value } : row)
                 }));
             };
 
@@ -235,12 +245,12 @@
                 const newRow = sheet === 'products' ? { id: Date.now(), name: '', stock: 0, cost: 0, price: 0 } :
                     sheet === 'sales' ? { id: Date.now(), productId: '', date: new Date().toISOString().split('T')[0], qty: 1, price: 0 } :
                         { id: Date.now(), date: new Date().toISOString().split('T')[0], description: '', category: 'General', amount: 0 };
-                setData(prev => ({ ...prev, [sheet]: [...prev[sheet], newRow] }));
+                setData(prev => ({ ...prev, [sheet]: [...(prev[sheet] || []), newRow] }));
             };
 
             const deleteRow = (sheet, id) => {
                 if (confirm("Delete this row?")) {
-                    setData(prev => ({ ...prev, [sheet]: prev[sheet].filter(r => r.id !== id) }));
+                    setData(prev => ({ ...prev, [sheet]: (prev[sheet] || []).filter(r => r.id !== id) }));
                 }
             };
 
@@ -297,31 +307,47 @@
                                             <tr>
                                                 <th className="w-10"></th>
                                                 <th className="text-left">Product / Item Name</th>
-                                                <th className="w-32 text-right">Initial Stock</th>
-                                                <th className="w-32 text-right">Current Stock</th>
-                                                <th className="w-40 text-right">Unit Cost (₦)</th>
-                                                <th className="w-40 text-right">Retail (₦)</th>
-                                                <th className="w-40 text-right">Total Asset Value</th>
+                                                <th className="w-24 text-right">Initial</th>
+                                                <th className="w-32 text-center bg-emerald-50 text-emerald-800">Restock (+)</th>
+                                                <th className="w-24 text-right">Total</th>
+                                                <th className="w-24 text-right">Sold</th>
+                                                <th className="w-32 text-right">Current</th>
+                                                <th className="w-40 text-right font-black">Valuation (Cost)</th>
                                                 <th className="w-16"></th>
                                             </tr>
                                         </thead>
                                         <tbody>
-                                            {data.products.map((p, idx) => {
-                                                const currentStock = getStockLevel(p.id);
+                                            {(data.products || []).map((p, idx) => {
+                                                const m = getStockMetrics(p.id);
                                                 return (
                                                     <tr key={p.id} className="hover:bg-emerald-50/30 group">
                                                         <td className="row-index">{idx + 1}</td>
                                                         <td><input value={p.name} onChange={e => updateRow('products', p.id, 'name', e.target.value)} placeholder="Item Description..." /></td>
                                                         <td><input type="number" className="text-right" value={p.stock} onChange={e => updateRow('products', p.id, 'stock', e.target.value)} /></td>
-                                                        <td className={`text-right font-black p-2 ${currentStock < 10 ? 'text-red-600 bg-red-50' : 'text-emerald-700'}`}>{currentStock}</td>
-                                                        <td><input type="number" className="text-right" value={p.cost} onChange={e => updateRow('products', p.id, 'cost', e.target.value)} /></td>
-                                                        <td><input type="number" className="text-right" value={p.price} onChange={e => updateRow('products', p.id, 'price', e.target.value)} /></td>
-                                                        <td className="p-2 text-right font-bold text-gray-400">₦{(currentStock * p.cost).toLocaleString()}</td>
+                                                        <td className="bg-emerald-50/50">
+                                                            <input
+                                                                type="number"
+                                                                placeholder="Add Qty"
+                                                                className="text-center font-black text-emerald-700 placeholder:text-emerald-300"
+                                                                onKeyDown={e => {
+                                                                    if (e.key === 'Enter') {
+                                                                        handleRestock(p.id, e.target.value);
+                                                                        e.target.value = '';
+                                                                    }
+                                                                }}
+                                                            />
+                                                        </td>
+                                                        <td className="text-right font-bold text-gray-500 p-2">{m.total}</td>
+                                                        <td className="text-right font-bold text-gray-500 p-2">{m.sold}</td>
+                                                        <td className={`text-right font-black p-2 ${m.isAlert ? 'text-red-500 bg-red-50' : 'text-emerald-800'}`}>
+                                                            {m.current}
+                                                            {m.isAlert && <span className="block text-[8px] uppercase tracking-tighter">Low Stock (80% Sold)</span>}
+                                                        </td>
+                                                        <td className="p-2 text-right font-bold text-gray-400">₦{(m.current * (Number(p.cost) || 0)).toLocaleString()}</td>
                                                         <td className="text-center opacity-0 group-hover:opacity-100"><button onClick={() => deleteRow('products', p.id)} className="text-red-400 font-bold">×</button></td>
                                                     </tr>
                                                 );
                                             })}
-                                            {data.products.length === 0 && <tr><td colSpan="8" className="p-8 text-center text-gray-300 italic">Inventory is empty. Add items above to start tracking.</td></tr>}
                                         </tbody>
                                     </table>
                                 </div>
@@ -350,14 +376,17 @@
                                             </tr>
                                         </thead>
                                         <tbody>
-                                            {data.sales.map((s, idx) => (
+                                            {(data.sales || []).map((s, idx) => (
                                                 <tr key={s.id} className="hover:bg-blue-50/30 group">
                                                     <td className="row-index">{idx + 1}</td>
                                                     <td><input type="date" value={s.date} onChange={e => updateRow('sales', s.id, 'date', e.target.value)} /></td>
                                                     <td>
                                                         <select value={s.productId} onChange={e => {
                                                             const p = data.products.find(prod => prod.id == e.target.value);
-                                                            setData(prev => ({ ...prev, sales: prev.sales.map(row => row.id === s.id ? { ...row, productId: e.target.value, price: p?.price || 0 } : row) }));
+                                                            setData(prev => ({
+                                                                ...prev,
+                                                                sales: (prev.sales || []).map(row => row.id === s.id ? { ...row, productId: e.target.value, price: p?.price || 0 } : row)
+                                                            }));
                                                         }}>
                                                             <option value="">Select Product...</option>
                                                             {data.products.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
@@ -369,7 +398,6 @@
                                                     <td className="text-center opacity-0 group-hover:opacity-100"><button onClick={() => deleteRow('sales', s.id)} className="text-red-400 font-bold">×</button></td>
                                                 </tr>
                                             ))}
-                                            {data.sales.length === 0 && <tr><td colSpan="7" className="p-8 text-center text-gray-300 italic">No sales recorded. Log transactions to see analytics.</td></tr>}
                                         </tbody>
                                     </table>
                                 </div>
@@ -397,7 +425,7 @@
                                             </tr>
                                         </thead>
                                         <tbody>
-                                            {data.expenses.map((e, idx) => (
+                                            {(data.expenses || []).map((e, idx) => (
                                                 <tr key={e.id} className="hover:bg-rose-50/30 group">
                                                     <td className="row-index">{idx + 1}</td>
                                                     <td><input type="date" value={e.date} onChange={e => updateRow('expenses', e.id, 'date', e.target.value)} /></td>
@@ -411,7 +439,6 @@
                                                     <td className="text-center opacity-0 group-hover:opacity-100"><button onClick={() => deleteRow('expenses', e.id)} className="text-red-400 font-bold">×</button></td>
                                                 </tr>
                                             ))}
-                                            {data.expenses.length === 0 && <tr><td colSpan="6" className="p-8 text-center text-gray-300 italic">No expenses reported yet.</td></tr>}
                                         </tbody>
                                     </table>
                                 </div>
@@ -460,9 +487,20 @@
             XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(summaryData), "Dashboard");
 
             // Sheets
-            XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(data.products), "Inventory");
-            XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(data.sales), "Sales");
-            XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(data.expenses), "Expenses");
+            XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(data.products || []), "Inventory");
+            XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(data.sales || []), "Sales");
+            XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(data.expenses || []), "Expenses");
+
+            // NEW: Restock History Sheet
+            const restockSheetData = (data.restocks || []).map(r => {
+                const p = data.products.find(prod => prod.id == r.productId);
+                return {
+                    "Date & Time": r.date,
+                    "Product Name": p?.name || "Unknown",
+                    "Quantity Added": r.qty
+                };
+            });
+            XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(restockSheetData), "Restock History");
 
             XLSX.writeFile(wb, `Tax_Master_MasterSheet_${new Date().toISOString().slice(0, 10)}.xlsx`);
         };
