@@ -139,7 +139,7 @@
         const DB_KEY = 'tax_master_v5';
         const DataService = {
             load: () => {
-                const defaults = { products: [], sales: [], expenses: [], restocks: [], business: { name: '', pin: null } };
+                const defaults = { products: [], sales: [], expenses: [], restocks: [], business: { name: '', pin: null, cac: '', description: '' } };
                 const saved = JSON.parse(localStorage.getItem(DB_KEY)) || {};
                 return { ...defaults, ...saved };
             },
@@ -149,28 +149,54 @@
         // --- AUTH ---
         const AuthScreen = ({ onLogin, hasAccount, onSetup }) => {
             const [pin, setPin] = useState('');
+            const [name, setName] = useState('');
+            const [cac, setCac] = useState('');
+            const [desc, setDesc] = useState('');
+
             return (
-                <div className="flex items-center justify-center h-full bg-[#1b4332]">
-                    <div className="bg-white p-10 rounded-3xl shadow-2xl w-full max-w-md m-4 border-t-8 border-[#217346]">
-                        <div className="text-center mb-8">
-                            <div className="w-20 h-20 bg-[#f0fdf4] rounded-2xl flex items-center justify-center mx-auto mb-4 text-[#217346]">
-                                <svg className="w-12 h-12" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04m12.892 7.781c.059.39.088.788.088 1.191 0 5.841-4.467 10.583-10 11.162V24"></path></svg>
+                <div className="flex items-center justify-center min-h-screen bg-[#1b4332] p-4">
+                    <div className="bg-white p-8 md:p-12 rounded-[2.5rem] shadow-2xl w-full max-w-lg border-t-[12px] border-[#217346]">
+                        <div className="text-center mb-10">
+                            <div className="w-24 h-24 bg-emerald-50 rounded-3xl flex items-center justify-center mx-auto mb-6 text-[#217346] shadow-inner">
+                                <svg className="w-14 h-14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04m12.892 7.781c.059.39.088.788.088 1.191 0 5.841-4.467 10.583-10 11.162V24"></path></svg>
                             </div>
-                            <h1 className="text-3xl font-black text-gray-800">Tax Master</h1>
-                            <p className="text-gray-500 mt-2">Nigeria's Premier Inventory Spreadsheet</p>
+                            <h1 className="text-4xl font-black text-gray-900 tracking-tight">TAX MASTER</h1>
+                            <p className="text-gray-500 mt-2 font-bold uppercase text-xs tracking-widest">Enterprise Ledger Solution</p>
                         </div>
+
                         <div className="space-y-6">
-                            <input
-                                type="password" maxLength="4" value={pin}
-                                onChange={e => setPin(e.target.value)}
-                                className="w-full text-center text-5xl tracking-[1rem] p-6 bg-gray-50 border-2 border-gray-100 rounded-2xl focus:border-[#217346] outline-none font-mono transition-all"
-                                placeholder="••••"
-                            />
+                            {!hasAccount && (
+                                <div className="space-y-4 animate-in fade-in slide-in-from-bottom-4">
+                                    <div className="p-1 px-4 bg-gray-50 rounded-2xl border border-gray-100">
+                                        <label className="text-[10px] font-black text-emerald-700 uppercase">Registered Business Name</label>
+                                        <input className="w-full bg-transparent p-2 text-lg font-bold outline-none" placeholder="e.g. My Global Ventures" value={name} onChange={e => setName(e.target.value)} />
+                                    </div>
+                                    <div className="p-1 px-4 bg-gray-50 rounded-2xl border border-gray-100">
+                                        <label className="text-[10px] font-black text-emerald-700 uppercase">CAC Registration Number</label>
+                                        <input className="w-full bg-transparent p-2 text-lg font-bold outline-none" placeholder="RC-000000" value={cac} onChange={e => setCac(e.target.value)} />
+                                    </div>
+                                    <div className="p-1 px-4 bg-gray-50 rounded-2xl border border-gray-100">
+                                        <label className="text-[10px] font-black text-emerald-700 uppercase">Business Description</label>
+                                        <input className="w-full bg-transparent p-2 text-lg font-bold outline-none" placeholder="e.g. Retail and Logistics..." value={desc} onChange={e => setDesc(e.target.value)} />
+                                    </div>
+                                </div>
+                            )}
+
+                            <div className="p-1 px-4 bg-gray-50 rounded-2xl border border-gray-100">
+                                <label className="text-[10px] font-black text-emerald-700 uppercase text-center block w-full">{hasAccount ? 'Enter PIN to Unlock' : 'Set 4-Digit Security PIN'}</label>
+                                <input
+                                    type="password" maxLength="4" value={pin}
+                                    onChange={e => setPin(e.target.value)}
+                                    className="w-full text-center text-5xl tracking-[1.5rem] p-4 bg-transparent outline-none font-mono transition-all"
+                                    placeholder="••••"
+                                />
+                            </div>
+
                             <button
-                                onClick={() => hasAccount ? onLogin(pin) : onSetup(pin)}
-                                className="w-full py-5 bg-[#217346] text-white rounded-2xl font-black text-xl hover:bg-[#1b5e3a] transform active:scale-95 transition-all shadow-xl shadow-green-900/20"
+                                onClick={() => hasAccount ? onLogin(pin) : onSetup({ pin, name, cac, desc })}
+                                className="w-full py-6 bg-[#217346] text-white rounded-3xl font-black text-xl hover:bg-[#1b5e3a] active:scale-95 transition-all shadow-xl shadow-green-900/40 uppercase tracking-wider"
                             >
-                                {hasAccount ? 'UNLOCK ACCOUNT' : 'INITIALIZE SYSTEM'}
+                                {hasAccount ? 'Unlock Database' : 'Initialize Enterprise'}
                             </button>
                         </div>
                     </div>
@@ -182,19 +208,49 @@
         const App = () => {
             const [session, setSession] = useState('auth');
             const [data, setData] = useState(DataService.load());
+            const [filter, setFilter] = useState({ type: 'all', value: '' }); // type: all, day, week, month, year
 
             useEffect(() => {
                 if (session === 'app') DataService.save(data);
             }, [data, session]);
 
+            const isDateInRange = (dateStr) => {
+                if (filter.type === 'all') return true;
+                const date = new Date(dateStr);
+                const now = new Date();
+
+                if (filter.type === 'day') {
+                    const target = filter.value || now.toISOString().split('T')[0];
+                    return dateStr === target;
+                }
+                if (filter.type === 'month') {
+                    const target = filter.value || now.toISOString().slice(0, 7); // YYYY-MM
+                    return dateStr.startsWith(target);
+                }
+                if (filter.type === 'year') {
+                    const target = filter.value || now.getFullYear().toString();
+                    return dateStr.startsWith(target);
+                }
+                if (filter.type === 'week') {
+                    // Simple week check: within last 7 days from selected date or now
+                    const targetDate = filter.value ? new Date(filter.value) : now;
+                    const diff = (targetDate - date) / (1000 * 60 * 60 * 24);
+                    return diff >= 0 && diff < 7;
+                }
+                return true;
+            };
+
+            const filteredSales = useMemo(() => data.sales.filter(s => isDateInRange(s.date)), [data.sales, filter]);
+            const filteredExpenses = useMemo(() => data.expenses.filter(e => isDateInRange(e.date)), [data.expenses, filter]);
+
             const stats = useMemo(() => {
-                const revenue = data.sales.reduce((sum, s) => sum + (Number(s.price) * Number(s.qty) || 0), 0);
-                const cogs = data.sales.reduce((sum, s) => {
+                const revenue = filteredSales.reduce((sum, s) => sum + (Number(s.price) * Number(s.qty) || 0), 0);
+                const cogs = filteredSales.reduce((sum, s) => {
                     const prod = data.products.find(p => p.id == s.productId);
                     return sum + ((Number(prod?.cost) || 0) * (Number(s.qty) || 0));
                 }, 0);
 
-                const expenses = (data.expenses || []).reduce((sum, e) => sum + (Number(e.amount) || 0), 0);
+                const expenses = filteredExpenses.reduce((sum, e) => sum + (Number(e.amount) || 0), 0);
                 const netProfit = revenue - cogs - expenses;
 
                 const lowStockCount = data.products.filter(p => {
@@ -204,17 +260,18 @@
                 }).length;
 
                 return { revenue, cogs, expenses, netProfit, lowStockCount };
-            }, [data]);
+            }, [filteredSales, filteredExpenses, data.products, data.restocks]);
 
             const getStockMetrics = (productId) => {
                 const prod = data.products.find(p => p.id == productId);
                 const initial = Number(prod?.stock) || 0;
                 const restocked = (data.restocks || []).filter(r => r.productId == productId).reduce((sum, r) => sum + Number(r.qty), 0);
                 const total = initial + restocked;
-                const sold = data.sales.filter(s => s.productId == productId).reduce((sum, s) => sum + Number(s.qty), 0);
-                const current = total - sold;
-                const isAlert = total > 0 && (sold >= 0.8 * total);
-                return { initial, restocked, total, sold, current, isAlert };
+                const soldTotal = data.sales.filter(s => s.productId == productId).reduce((sum, s) => sum + Number(s.qty), 0);
+                const soldPeriod = filteredSales.filter(s => s.productId == productId).reduce((sum, s) => sum + Number(s.qty), 0);
+                const current = total - soldTotal;
+                const isAlert = total > 0 && (soldTotal >= 0.8 * total);
+                return { initial, restocked, total, soldTotal, soldPeriod, current, isAlert };
             };
 
             const handleRestock = (productId, qty) => {
@@ -254,42 +311,88 @@
                 }
             };
 
-            if (session === 'auth') return <AuthScreen onLogin={(p) => p === data.business.pin ? setSession('app') : alert("Invalid PIN")} onSetup={(p) => { setData(d => ({ ...d, business: { ...d.business, pin: p } })); setSession('app'); }} hasAccount={!!data.business.pin} />;
+            // Rest of the App component continues here...
+            // (Note: the previous tool call already inserted the UI part, 
+            // I need to ensure the closing tags are correct and the export function is updated)
+
+            if (session === 'auth') return (
+                <AuthScreen
+                    onLogin={(p) => p === data.business.pin ? setSession('app') : alert("Invalid PIN")}
+                    onSetup={(profile) => {
+                        setData(d => ({ ...d, business: profile }));
+                        setSession('app');
+                    }}
+                    hasAccount={!!data.business.pin}
+                />
+            );
 
             return (
-                <div className="flex flex-col h-full">
-                    {/* Dashboard Header */}
-                    <div className="glass-header p-6 flex flex-col md:flex-row gap-6 items-center shrink-0">
-                        <div className="flex-1 w-full grid grid-cols-2 md:grid-cols-5 gap-4">
-                            <AnalyticsCard label="Revenue" value={stats.revenue} sub="Top Line" color="emerald" isPrice icon="💰" />
-                            <AnalyticsCard label="Net Profit" value={stats.netProfit} sub="Take Home" color="blue" isPrice icon="📈" />
-                            <AnalyticsCard label="COGS" value={stats.cogs} sub="Stock Cost" color="amber" isPrice icon="📦" />
-                            <AnalyticsCard label="Expenses" value={stats.expenses} sub="Overhead" color="rose" isPrice icon="💸" />
-                            <AnalyticsCard label="Low Stock" value={stats.lowStockCount} sub="Alerts" color="orange" isPrice={false} icon="⚠️" />
+                <div className="flex flex-col h-screen bg-[#f8fafc]">
+                    {/* Enterprise Header */}
+                    <div className="bg-white border-b border-gray-100 p-8 flex flex-col items-center text-center shadow-sm">
+                        <div className="mb-4">
+                            <h1 className="text-5xl font-black text-gray-900 uppercase tracking-tighter leading-none mb-2">
+                                {data.business.name || 'Enterprise System'}
+                            </h1>
+                            <div className="flex items-center justify-center gap-4 text-xs font-black text-emerald-700 tracking-[0.2em]">
+                                <span className="px-3 py-1 bg-emerald-50 rounded-full border border-emerald-100">
+                                    CAC: {data.business.cac || 'N/A'}
+                                </span>
+                                <span className="w-1 h-1 bg-gray-300 rounded-full"></span>
+                                <span className="text-gray-400 font-bold normal-case">
+                                    {data.business.description || 'Master Financial Records'}
+                                </span>
+                            </div>
                         </div>
-                        <div className="flex gap-3">
-                            <button onClick={() => setSession('auth')} className="p-3 bg-gray-100 rounded-xl hover:bg-gray-200 transition-colors" title="Lock System">🔒</button>
-                            <button onClick={() => exportToExcel(data, stats)} className="px-6 py-3 bg-[#217346] text-white font-bold rounded-xl shadow-lg hover:bg-[#1b5e3a] transition-all">Export Excel</button>
+
+                        {/* Period Selection Controls */}
+                        <div className="flex flex-wrap items-center justify-center gap-4 mt-4 p-2 bg-gray-50 rounded-3xl border border-gray-100">
+                            <div className="flex gap-1 p-1 bg-white rounded-2xl shadow-sm">
+                                {['all', 'day', 'week', 'month', 'year'].map(type => (
+                                    <button
+                                        key={type}
+                                        onClick={() => setFilter(f => ({ ...f, type }))}
+                                        className={`px-6 py-2 rounded-xl text-[10px] font-black transition-all ${filter.type === type ? 'bg-[#217346] text-white shadow-lg' : 'text-gray-400 hover:text-gray-600'}`}
+                                    >
+                                        {type.toUpperCase()}
+                                    </button>
+                                ))}
+                            </div>
+
+                            {filter.type !== 'all' && (
+                                <div className="flex items-center gap-2 animate-in zoom-in-95">
+                                    <span className="text-[10px] font-black text-gray-400 uppercase">Select {filter.type}:</span>
+                                    <input
+                                        type={filter.type === 'month' ? 'month' : filter.type === 'year' ? 'number' : 'date'}
+                                        min={filter.type === 'year' ? '2020' : undefined}
+                                        max={filter.type === 'year' ? '2030' : undefined}
+                                        value={filter.value}
+                                        onChange={e => setFilter(f => ({ ...f, value: e.target.value }))}
+                                        className="bg-white border border-gray-100 px-4 py-2 rounded-xl text-xs font-bold outline-none focus:ring-2 ring-emerald-500/20"
+                                    />
+                                </div>
+                            )}
                         </div>
                     </div>
 
-                    {/* Main Content: Stacked Master Sheets */}
-                    <div className="flex-1 overflow-y-auto bg-gray-50 pb-20">
-                        {/* Analytics Summary Dashboard */}
-                        <div className="p-8 max-w-7xl mx-auto">
-                            <div className="flex items-center justify-between mb-8">
-                                <h2 className="text-2xl font-black text-gray-800 uppercase tracking-tight flex items-center gap-3">
-                                    <span className="w-2 h-8 bg-[#217346] rounded-full"></span>
-                                    Business Intelligence Dashboard
-                                </h2>
-                                <div className="text-xs font-bold text-gray-400">REAL-TIME DATA PROCESSING ACTIVE</div>
+                    <div className="flex-1 overflow-y-auto">
+                        <div className="p-8 max-w-[1600px] mx-auto">
+                            {/* Dashboard Stats */}
+                            <div className="grid grid-cols-2 md:grid-cols-5 gap-6 mb-12">
+                                <AnalyticsCard label="Revenue" value={stats.revenue} sub={filter.type === 'all' ? 'Cumulative' : `${filter.type} View`} color="emerald" isPrice icon="💰" />
+                                <AnalyticsCard label="Net Profit" value={stats.netProfit} sub="Take Home" color="blue" isPrice icon="📈" />
+                                <AnalyticsCard label="COGS" value={stats.cogs} sub="Direct Cost" color="amber" isPrice icon="📦" />
+                                <AnalyticsCard label="Expenses" value={stats.expenses} sub="Overhead" color="rose" isPrice icon="💸" />
+                                <AnalyticsCard label="Low Stock" value={stats.lowStockCount} sub="Alerts" color="orange" isPrice={false} icon="⚠️" />
                             </div>
 
-                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
-                                <AnalyticsCard label="Operating Revenue" value={stats.revenue} sub="Total Gross Sales" color="emerald" icon="💰" />
-                                <AnalyticsCard label="Direct COGS" value={stats.cogs} sub="Cost of Inventory Sold" color="amber" icon="📦" />
-                                <AnalyticsCard label="Operating Expenses" value={stats.expenses} sub="Logistics, Wage, Tax" color="rose" icon="💸" />
-                                <AnalyticsCard label="Estimated Net Profit" value={stats.netProfit} sub="After All Deductions" color="blue" icon="📊" />
+                            <div className="flex justify-end gap-3 mb-8">
+                                <button onClick={() => setSession('auth')} className="px-6 py-3 bg-white border border-gray-100 text-gray-600 font-bold rounded-2xl hover:bg-gray-50 transition-colors shadow-sm flex items-center gap-2">
+                                    <span>🔒</span> LOCK SYSTEM
+                                </button>
+                                <button onClick={() => exportToExcel(data, stats, filteredSales, filteredExpenses, filter)} className="px-8 py-3 bg-[#217346] text-white font-black rounded-2xl shadow-xl shadow-green-900/20 hover:bg-[#1b5e3a] transition-all flex items-center gap-2">
+                                    <span>📊</span> EXPORT AS EXCEL
+                                </button>
                             </div>
 
                             {/* Inventory Sheet Section */}
@@ -338,7 +441,10 @@
                                                             />
                                                         </td>
                                                         <td className="text-right font-bold text-gray-500 p-2">{m.total}</td>
-                                                        <td className="text-right font-bold text-gray-500 p-2">{m.sold}</td>
+                                                        <td className="text-right font-bold text-emerald-600 p-2">
+                                                            {m.soldPeriod}
+                                                            {filter.type !== 'all' && <span className="block text-[8px] text-gray-400">Total: {m.soldTotal}</span>}
+                                                        </td>
                                                         <td className={`text-right font-black p-2 ${m.isAlert ? 'text-red-500 bg-red-50' : 'text-emerald-800'}`}>
                                                             {m.current}
                                                             {m.isAlert && <span className="block text-[8px] uppercase tracking-tighter">Low Stock (80% Sold)</span>}
@@ -376,7 +482,7 @@
                                             </tr>
                                         </thead>
                                         <tbody>
-                                            {(data.sales || []).map((s, idx) => (
+                                            {(filteredSales || []).map((s, idx) => (
                                                 <tr key={s.id} className="hover:bg-blue-50/30 group">
                                                     <td className="row-index">{idx + 1}</td>
                                                     <td><input type="date" value={s.date} onChange={e => updateRow('sales', s.id, 'date', e.target.value)} /></td>
@@ -425,7 +531,7 @@
                                             </tr>
                                         </thead>
                                         <tbody>
-                                            {(data.expenses || []).map((exp, idx) => (
+                                            {(filteredExpenses || []).map((exp, idx) => (
                                                 <tr key={exp.id} className="hover:bg-rose-50/30 group">
                                                     <td className="row-index">{idx + 1}</td>
                                                     <td><input type="date" value={exp.date} onChange={e => updateRow('expenses', exp.id, 'date', e.target.value)} /></td>
@@ -473,25 +579,35 @@
             </div>
         );
 
-        const exportToExcel = (data, stats) => {
+        const exportToExcel = (data, stats, sales, expenses, filter) => {
             const wb = XLSX.utils.book_new();
+            const periodLabel = filter.type === 'all' ? 'All Time' : `${filter.type.toUpperCase()}: ${filter.value || 'Current'}`;
 
-            // Summary
+            // 1. Executive Summary Sheet
             const summaryData = [
-                ["System Summary", "Tax Master Nigeria"],
+                ["Enterprise Report", data.business.name || "Tax Master Nigeria"],
+                ["CAC Registration", data.business.cac || "N/A"],
+                ["Description", data.business.description || ""],
+                ["Report Period", periodLabel],
+                ["------------------", "------------------"],
                 ["Total Revenue", stats.revenue],
-                ["Net Profit", stats.netProfit],
+                ["Total COGS", stats.cogs],
                 ["Total Expenses", stats.expenses],
+                ["Net Profit", stats.netProfit],
                 ["Generated At", new Date().toLocaleString()]
             ];
-            XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(summaryData), "Dashboard");
+            XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(summaryData), "Enterprise Summary");
 
-            // Sheets
-            XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(data.products || []), "Inventory");
-            XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(data.sales || []), "Sales");
-            XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(data.expenses || []), "Expenses");
+            // 2. Inventory Sheet (Full)
+            XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(data.products || []), "Master Inventory");
 
-            // NEW: Restock History Sheet
+            // 3. Filtered Sales Sheet
+            XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(sales || []), `Sales (${filter.type})`);
+
+            // 4. Filtered Expenses Sheet
+            XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(expenses || []), `Expenses (${filter.type})`);
+
+            // 5. Restock History Sheet
             const restockSheetData = (data.restocks || []).map(r => {
                 const p = data.products.find(prod => prod.id == r.productId);
                 return {
@@ -502,7 +618,7 @@
             });
             XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(restockSheetData), "Restock History");
 
-            XLSX.writeFile(wb, `Tax_Master_MasterSheet_${new Date().toISOString().slice(0, 10)}.xlsx`);
+            XLSX.writeFile(wb, `${data.business.name || 'TaxMaster'}_Report_${new Date().toISOString().slice(0, 10)}.xlsx`);
         };
 
         const root = ReactDOM.createRoot(document.getElementById('root'));
