@@ -17,6 +17,7 @@
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
     <style>
         :root {
             --excel-green: #217346;
@@ -200,7 +201,7 @@
         };
 
         // --- AUTH ---
-        const AuthScreen = ({ onAuthSuccess }) => {
+        const AuthScreen = ({ user }) => {
             const [isLogin, setIsLogin] = useState(true);
             const [email, setEmail] = useState('');
             const [password, setPassword] = useState('');
@@ -209,6 +210,11 @@
             const [desc, setDesc] = useState('');
             const [loading, setLoading] = useState(false);
             const [error, setError] = useState('');
+            const [vSent, setVSent] = useState(false);
+
+            useEffect(() => {
+                gsap.from(".auth-card", { opacity: 0, y: 30, duration: 1, ease: "expo.out" });
+            }, [isLogin, vSent]);
 
             const handleSubmit = async (e) => {
                 e.preventDefault();
@@ -219,7 +225,8 @@
                         await auth.signInWithEmailAndPassword(email, password);
                     } else {
                         const userCredential = await auth.createUserWithEmailAndPassword(email, password);
-                        // Save initial business profile for new users immediately
+                        await userCredential.user.sendEmailVerification();
+                        setVSent(true);
                         const initialData = {
                             business: { name: name || 'MY ENTERPRISE', cac: cac || '', description: desc || '', pin: '1234' },
                             products: [], sales: [], expenses: [], restocks: []
@@ -233,15 +240,45 @@
                 }
             };
 
+            if (user && !user.emailVerified || vSent) {
+                return (
+                    <div className="flex items-center justify-center min-h-screen bg-[#064e3b] p-4 font-inter">
+                        <div className="bg-white/10 backdrop-blur-2xl p-8 md:p-12 rounded-[3rem] shadow-2xl border border-white/20 w-full max-w-lg text-center auth-card">
+                            <div className="w-24 h-24 bg-emerald-400/20 rounded-full flex items-center justify-center mx-auto mb-8 animate-pulse text-5xl">
+                                📧
+                            </div>
+                            <h2 className="text-3xl font-black text-white mb-4">Verify Your Identity</h2>
+                            <p className="text-emerald-100/70 mb-8 font-medium">We sent a verification link to your email. Please click it to activate your enterprise vault.</p>
+                            <button
+                                onClick={() => window.location.reload()}
+                                className="w-full py-5 bg-emerald-500 text-white rounded-2xl font-black text-lg hover:bg-emerald-400 transition-all shadow-lg mb-4"
+                            >
+                                I'VE VERIFIED &bull; LOG IN
+                            </button>
+                            <button
+                                onClick={async () => {
+                                    await auth.currentUser?.sendEmailVerification();
+                                    alert("Verification link resent!");
+                                }}
+                                className="text-emerald-300 text-sm font-bold hover:text-white transition-colors"
+                            >
+                                Resend verification link
+                            </button>
+                            <button onClick={() => auth.signOut()} className="block mx-auto mt-6 text-emerald-200/50 text-xs font-bold uppercase tracking-widest hover:text-white">Cancel & Back</button>
+                        </div>
+                    </div>
+                );
+            }
+
             return (
-                <div className="flex items-center justify-center min-h-screen bg-[#1b4332] p-4">
-                    <div className="bg-white p-8 md:p-12 rounded-[2.5rem] shadow-2xl w-full max-w-lg border-t-[12px] border-[#217346]">
+                <div className="flex items-center justify-center min-h-screen bg-[#1b4332] p-4 font-inter">
+                    <div className="bg-white p-8 md:p-12 rounded-[2.5rem] shadow-2xl w-full max-w-lg border-t-[12px] border-[#217346] auth-card">
                         <div className="text-center mb-10">
                             <div className="w-24 h-24 bg-emerald-50 rounded-3xl flex items-center justify-center mx-auto mb-6 text-[#217346] shadow-inner">
                                 <svg className="w-14 h-14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04m12.892 7.781c.059.39.088.788.088 1.191 0 5.841-4.467 10.583-10 11.162V24"></path></svg>
                             </div>
                             <h1 className="text-4xl font-black text-gray-900 tracking-tight text-center">TAX MASTER</h1>
-                            <p className="text-gray-500 mt-2 font-bold uppercase text-xs tracking-widest text-center">Cloud Ledger Solution</p>
+                            <p className="text-gray-500 mt-2 font-bold uppercase text-xs tracking-widest text-center">Cloud Ledger Solution &bull; Elite Edition</p>
                         </div>
 
                         <form onSubmit={handleSubmit} className="space-y-6">
@@ -299,9 +336,10 @@
                             <button
                                 type="submit"
                                 disabled={loading}
-                                className="w-full py-6 bg-[#217346] text-white rounded-3xl font-black text-xl hover:bg-[#1b5e3a] active:scale-95 transition-all shadow-xl shadow-green-900/40 uppercase tracking-wider disabled:opacity-50"
+                                className="group w-full py-6 bg-[#217346] text-white rounded-3xl font-black text-xl hover:bg-[#1b5e3a] active:scale-95 transition-all shadow-xl shadow-green-900/40 uppercase tracking-wider disabled:opacity-50 overflow-hidden relative"
                             >
-                                {loading ? 'Initializing Enterprise...' : (isLogin ? 'Login to Portal' : 'Create Enterprise Account')}
+                                <span className="relative z-10">{loading ? 'Initializing Enterprise...' : (isLogin ? 'Login to Portal' : 'Create Enterprise Account')}</span>
+                                <div className="absolute inset-0 bg-white/10 translate-y-full group-hover:translate-y-0 transition-transform duration-300"></div>
                             </button>
 
                             <button
@@ -432,14 +470,13 @@
 
             const getStockMetrics = (productId) => {
                 const prod = data.products.find(p => p.id == productId);
-                const initial = Number(prod?.stock) || 0;
                 const restocked = (data.restocks || []).filter(r => r.productId == productId).reduce((sum, r) => sum + Number(r.qty), 0);
-                const total = initial + restocked;
+                const total = restocked; // Simplified: only restocks count
                 const soldTotal = data.sales.filter(s => s.productId == productId).reduce((sum, s) => sum + Number(s.qty), 0);
                 const soldPeriod = filteredSales.filter(s => s.productId == productId).reduce((sum, s) => sum + Number(s.qty), 0);
                 const current = total - soldTotal;
                 const isAlert = total > 0 && (soldTotal >= 0.8 * total);
-                return { initial, restocked, total, soldTotal, soldPeriod, current, isAlert };
+                return { restocked, total, soldTotal, soldPeriod, current, isAlert };
             };
 
             const handleRestock = (productId, qty) => {
@@ -467,7 +504,7 @@
             };
 
             const addRow = (sheet) => {
-                const newRow = sheet === 'products' ? { id: Date.now(), name: '', stock: 0, cost: 0, price: 0 } :
+                const newRow = sheet === 'products' ? { id: Date.now(), name: '', cost: 0, price: 0 } :
                     sheet === 'sales' ? { id: Date.now(), productId: '', date: new Date().toISOString().split('T')[0], qty: 1, price: 0, cost: 0 } :
                         { id: Date.now(), date: new Date().toISOString().split('T')[0], description: '', category: 'General', amount: 0 };
                 setData(prev => ({ ...prev, [sheet]: [...(prev[sheet] || []), newRow] }));
@@ -480,12 +517,22 @@
             };
 
             if (loading) return (
-                <div className="flex items-center justify-center min-h-screen bg-[#1b4332]">
-                    <div className="text-white font-black text-2xl animate-pulse">LOADING ENTERPRISE...</div>
+                <div className="flex items-center justify-center min-h-screen bg-emerald-950">
+                    <div className="flex flex-col items-center">
+                        <div className="w-16 h-16 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin mb-6"></div>
+                        <div className="text-emerald-400 font-black text-xl tracking-widest animate-pulse">ESTABLISHING VAULT...</div>
+                    </div>
                 </div>
             );
 
-            if (!user) return <AuthScreen />;
+            if (!user || (user && !user.emailVerified)) return <AuthScreen user={user} />;
+
+            // Page Entrance Animations
+            useEffect(() => {
+                gsap.from(".fade-in-up", {
+                    opacity: 0, y: 20, stagger: 0.1, duration: 0.8, ease: "power2.out"
+                });
+            }, []);
 
             return (
                 <div className="flex flex-col h-screen bg-[#f8fafc]">
@@ -588,9 +635,8 @@
                                             <tr>
                                                 <th className="w-10"></th>
                                                 <th className="text-left font-black">Item Name</th>
-                                                <th className="w-24 text-right">Initial</th>
-                                                <th className="w-32 text-center bg-emerald-50 text-emerald-800">Restock (+)</th>
-                                                <th className="w-24 text-right">Total</th>
+                                                <th className="w-32 text-center bg-emerald-50 text-emerald-800 font-black">Restock (+)</th>
+                                                <th className="w-24 text-right">In-Stock</th>
                                                 <th className="w-24 text-right">Sold</th>
                                                 <th className="w-28 text-right font-black">Cost (₦)</th>
                                                 <th className="w-28 text-right font-black">Sell (₦)</th>
@@ -603,10 +649,9 @@
                                             {(data.products || []).map((p, idx) => {
                                                 const m = getStockMetrics(p.id);
                                                 return (
-                                                    <tr key={p.id} className="hover:bg-emerald-50/30 group">
+                                                    <tr key={p.id} className="hover:bg-emerald-50/30 group fade-in-up">
                                                         <td className="row-index">{idx + 1}</td>
-                                                        <td><input value={p.name} onChange={e => updateRow('products', p.id, 'name', e.target.value)} placeholder="Item Description..." /></td>
-                                                        <td><input type="number" className="text-right" value={p.stock} onChange={e => updateRow('products', p.id, 'stock', e.target.value)} /></td>
+                                                        <td><input className="font-bold text-gray-700" value={p.name} onChange={e => updateRow('products', p.id, 'name', e.target.value)} placeholder="Item Description..." /></td>
                                                         <td className="bg-emerald-50/50">
                                                             <input
                                                                 type="number"
@@ -620,19 +665,19 @@
                                                                 }}
                                                             />
                                                         </td>
-                                                        <td className="text-right font-bold text-gray-500 p-2">{m.total}</td>
+                                                        <td className="text-right font-bold text-gray-400 p-2">{m.total}</td>
                                                         <td className="text-right font-bold text-emerald-600 p-2">
                                                             {m.soldPeriod}
-                                                            {filter.type !== 'all' && <span className="block text-[8px] text-gray-400">Total: {m.soldTotal}</span>}
+                                                            {filter.type !== 'all' && <span className="block text-[8px] text-gray-400 font-black">Total: {m.soldTotal}</span>}
                                                         </td>
                                                         <td><input type="number" className="text-right font-bold" value={p.cost} onChange={e => updateRow('products', p.id, 'cost', e.target.value)} /></td>
                                                         <td><input type="number" className="text-right font-bold text-emerald-700" value={p.price} onChange={e => updateRow('products', p.id, 'price', e.target.value)} /></td>
                                                         <td className={`text-right font-black p-2 ${m.isAlert ? 'text-red-500 bg-red-50' : 'text-emerald-800'}`}>
                                                             {m.current}
-                                                            {m.isAlert && <span className="block text-[8px] uppercase tracking-tighter">Low Stock (80% Sold)</span>}
+                                                            {m.isAlert && <span className="block text-[8px] uppercase tracking-tighter animate-bounce">Low Stock</span>}
                                                         </td>
-                                                        <td className="p-2 text-right font-bold text-gray-600 bg-gray-50/50">₦{(m.current * (Number(p.cost) || 0)).toLocaleString()}</td>
-                                                        <td className="text-center opacity-0 group-hover:opacity-100"><button onClick={() => deleteRow('products', p.id)} className="text-red-400 font-bold">×</button></td>
+                                                        <td className="p-2 text-right font-black text-gray-600 bg-gray-50/50">₦{(m.current * (Number(p.cost) || 0)).toLocaleString()}</td>
+                                                        <td className="text-center opacity-0 group-hover:opacity-100"><button onClick={() => deleteRow('products', p.id)} className="text-red-400 font-bold hover:scale-125 transition-transform">×</button></td>
                                                     </tr>
                                                 );
                                             })}
@@ -757,14 +802,15 @@
         };
 
         const AnalyticsCard = ({ label, value, sub, color, isPrice = true, icon }) => (
-            <div className={`bg-white p-6 rounded-[2rem] border border-gray-100 stat-card flex flex-col h-full`}>
-                <div className="flex justify-between items-start mb-4">
-                    <div className={`w-12 h-12 bg-${color}-50 text-${color}-600 rounded-2xl flex items-center justify-center text-2xl`}>{icon}</div>
-                    <div className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em]">{sub}</div>
+            <div className={`bg-white p-6 rounded-[2rem] border border-gray-100 stat-card flex flex-col h-full fade-in-up relative overflow-hidden group`}>
+                <div className={`absolute top-0 right-0 w-24 h-24 bg-${color}-500/5 rounded-full -mr-8 -mt-8 transition-transform group-hover:scale-150 duration-700`}></div>
+                <div className="flex justify-between items-start mb-4 relative z-10">
+                    <div className={`w-12 h-12 bg-${color}-50 text-${color}-600 rounded-2xl flex items-center justify-center text-2xl shadow-sm`}>{icon}</div>
+                    <div className="text-[10px] font-black text-gray-300 uppercase tracking-[0.2em]">{sub}</div>
                 </div>
-                <div className="mt-auto">
-                    <div className="text-sm font-bold text-gray-500 uppercase tracking-tight mb-1">{label}</div>
-                    <div className={`text-3xl font-black text-gray-900 font-mono`}>
+                <div className="mt-auto relative z-10">
+                    <div className="text-xs font-black text-gray-400 uppercase tracking-widest mb-1 group-hover:text-emerald-600 transition-colors">{label}</div>
+                    <div className={`text-4xl font-black text-gray-900 font-mono tracking-tighter`}>
                         {isPrice ? '₦' : ''}{Number(value).toLocaleString()}
                     </div>
                 </div>
