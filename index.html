@@ -649,21 +649,21 @@
                     <ActivityFeed activities={activities} />
 
                     {/* Enterprise Header */}
-                    <div className="bg-transparent border-b border-gray-100/50 p-8 flex flex-col items-center text-center">
+                    <div className="bg-transparent border-b border-gray-100/50 p-4 md:p-8 flex flex-col items-center text-center">
                         <div className="mb-4 space-y-2 w-full max-w-2xl">
                             <input
                                 value={data.business.name}
                                 onChange={e => setData(d => ({ ...d, business: { ...d.business, name: e.target.value } }))}
-                                className="text-5xl font-black text-gray-900 uppercase tracking-tighter leading-none mb-2 text-center bg-transparent hover:bg-white/50 rounded-xl transition-all outline-none"
+                                className="text-3xl md:text-5xl font-black text-gray-900 uppercase tracking-tighter leading-none mb-2 text-center bg-transparent hover:bg-white/50 rounded-xl transition-all outline-none"
                                 placeholder="ENTERPRISE NAME"
                             />
                             <div className="flex flex-col items-center gap-2">
-                                <div className="flex items-center justify-center gap-2">
+                                <div className="flex items-center justify-center gap-2 flex-wrap">
                                     <span className="text-[10px] font-black text-emerald-700 uppercase tracking-widest px-3 py-1 bg-emerald-50/80 rounded-full border border-emerald-100">CAC RECORD:</span>
                                     <input
                                         value={data.business.cac}
                                         onChange={e => setData(d => ({ ...d, business: { ...d.business, cac: e.target.value } }))}
-                                        className="text-xs font-black text-emerald-800 bg-transparent hover:bg-white/50 rounded-lg px-2 py-1 outline-none w-32 border-b border-dotted border-emerald-300"
+                                        className="text-xs font-black text-emerald-800 bg-transparent hover:bg-white/50 rounded-lg px-2 py-1 outline-none w-32 border-b border-dotted border-emerald-300 text-center"
                                         placeholder="RC-XXXXXX"
                                     />
                                 </div>
@@ -715,13 +715,18 @@
                     <div className="flex-1 overflow-y-auto main-content">
                         <div className="p-8 max-w-[1600px] mx-auto">
                             {/* Dashboard Stats */}
-                            <div className="grid grid-cols-2 md:grid-cols-5 gap-6 mb-12">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mb-12">
                                 <AnalyticsCard label="Revenue" value={stats.revenue} sub={filter.type === 'all' ? 'Cumulative' : `${filter.type} View`} color="emerald" isPrice icon="💰" />
                                 <AnalyticsCard label="Net Profit" value={stats.netProfit} sub="Take Home" color="blue" isPrice icon="📈" />
                                 <AnalyticsCard label="COGS" value={stats.cogs} sub="Direct Cost" color="amber" isPrice icon="📦" />
                                 <AnalyticsCard label="Expenses" value={stats.expenses} sub="Overhead" color="rose" isPrice icon="💸" />
-                                <AnalyticsCard label="Low Stock" value={stats.lowStockCount} sub="Alerts" color="orange" isPrice={false} icon="⚠️" />
                             </div>
+
+                            {stats.lowStockCount > 0 && (
+                                <div className="mb-12 animate-bounce">
+                                    <AnalyticsCard label="Low Stock Items" value={stats.lowStockCount} sub="Immediate Attention Required" color="orange" isPrice={false} icon="⚠️" />
+                                </div>
+                            )}
 
                             <div className="flex justify-end gap-3 mb-8">
                                 <button onClick={() => auth.signOut()} className="px-6 py-3 bg-white border border-gray-100 text-gray-600 font-bold rounded-2xl hover:bg-gray-50 transition-colors shadow-sm flex items-center gap-2">
@@ -739,10 +744,10 @@
                                         <span className="p-2 bg-emerald-100 text-emerald-700 rounded-lg text-xs">01</span>
                                         MASTER INVENTORY SHEET
                                     </h3>
-                                    <button onClick={() => addRow('products')} className="px-4 py-2 bg-emerald-600 text-white text-xs font-bold rounded-lg hover:bg-emerald-700">+ NEW ITEM</button>
+                                    <button onClick={() => addRow('products')} className="px-4 py-2 bg-emerald-600 text-white text-xs font-bold rounded-lg hover:bg-emerald-700 whitespace-nowrap">+ NEW ITEM</button>
                                 </div>
-                                <div className="spreadsheet-container border-none">
-                                    <table className="min-w-full">
+                                <div className="spreadsheet-container border-none overflow-x-auto">
+                                    <table className="min-w-[1000px] w-full">
                                         <thead>
                                             <tr>
                                                 <th className="w-10"></th>
@@ -805,10 +810,10 @@
                                         <span className="p-2 bg-blue-100 text-blue-700 rounded-lg text-xs">02</span>
                                         DAILY SALES JOURNAL {filter.type !== 'all' ? `(${filter.type.toUpperCase()})` : '(ALL-TIME)'}
                                     </h3>
-                                    <button onClick={() => addRow('sales')} className="px-4 py-2 bg-blue-600 text-white text-xs font-bold rounded-lg hover:bg-blue-700">+ LOG SALE</button>
+                                    <button onClick={() => addRow('sales')} className="px-4 py-2 bg-blue-600 text-white text-xs font-bold rounded-lg hover:bg-blue-700 whitespace-nowrap">+ NEW SALE</button>
                                 </div>
-                                <div className="spreadsheet-container border-none">
-                                    <table className="min-w-full">
+                                <div className="spreadsheet-container border-none overflow-x-auto">
+                                    <table className="min-w-[1000px] w-full">
                                         <thead>
                                             <tr>
                                                 <th className="w-10"></th>
@@ -862,10 +867,10 @@
                                         <span className="p-2 bg-rose-100 text-rose-700 rounded-lg text-xs">03</span>
                                         BUSINESS EXPENSE LEDGER {filter.type !== 'all' ? `(${filter.type.toUpperCase()})` : '(ALL-TIME)'}
                                     </h3>
-                                    <button onClick={() => addRow('expenses')} className="px-4 py-2 bg-rose-600 text-white text-xs font-bold rounded-lg hover:bg-rose-700">+ LOG EXPENSE</button>
+                                    <button onClick={() => addRow('expenses')} className="px-4 py-2 bg-rose-600 text-white text-xs font-bold rounded-lg hover:bg-rose-700 whitespace-nowrap">+ NEW EXPENSE</button>
                                 </div>
-                                <div className="spreadsheet-container border-none">
-                                    <table className="min-w-full">
+                                <div className="spreadsheet-container border-none overflow-x-auto">
+                                    <table className="min-w-[1000px] w-full">
                                         <thead>
                                             <tr>
                                                 <th className="w-10"></th>
@@ -914,15 +919,15 @@
         };
 
         const AnalyticsCard = ({ label, value, sub, color, isPrice = true, icon }) => (
-            <div className={`bg-white p-6 rounded-[2rem] border border-gray-100 stat-card flex flex-col h-full fade-in-up relative overflow-hidden group`}>
-                <div className={`absolute top-0 right-0 w-24 h-24 bg-${color}-500/5 rounded-full -mr-8 -mt-8 transition-transform group-hover:scale-150 duration-700`}></div>
+            <div className={`bg-white/80 backdrop-blur-xl p-6 rounded-[2rem] border border-gray-100 stat-card flex flex-col h-full fade-in-up relative overflow-hidden group shadow-lg shadow-gray-200/50`}>
+                <div className={`absolute top-0 right-0 w-24 h-24 bg-${color}-500/10 rounded-full -mr-8 -mt-8 transition-transform group-hover:scale-150 duration-700`}></div>
                 <div className="flex justify-between items-start mb-4 relative z-10">
-                    <div className={`w-12 h-12 bg-${color}-50 text-${color}-600 rounded-2xl flex items-center justify-center text-2xl shadow-sm`}>{icon}</div>
-                    <div className="text-[10px] font-black text-gray-300 uppercase tracking-[0.2em]">{sub}</div>
+                    <div className={`w-12 h-12 bg-${color}-100 text-${color}-700 rounded-2xl flex items-center justify-center text-2xl shadow-inner`}>{icon}</div>
+                    <div className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em]">{sub}</div>
                 </div>
                 <div className="mt-auto relative z-10">
-                    <div className="text-xs font-black text-gray-400 uppercase tracking-widest mb-1 group-hover:text-emerald-600 transition-colors">{label}</div>
-                    <div className={`text-4xl font-black text-gray-900 font-mono tracking-tighter`}>
+                    <div className={`text-xs font-black text-${color}-600/70 uppercase tracking-widest mb-1 group-hover:text-${color}-600 transition-colors`}>{label}</div>
+                    <div className="text-3xl md:text-4xl font-black text-gray-900 font-mono tracking-tighter">
                         {isPrice ? '₦' : ''}{Number(value).toLocaleString()}
                     </div>
                 </div>
