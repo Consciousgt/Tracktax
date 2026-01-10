@@ -242,15 +242,15 @@
 
         const ActivityFeed = ({ activities }) => {
             return (
-                <div className="fixed bottom-24 right-8 w-64 space-y-2 pointer-events-none z-50">
-                    {activities.slice(-4).map((act, i) => (
-                        <div key={act.id} className="activity-item bg-white/80 backdrop-blur-xl p-3 rounded-2xl shadow-xl border border-white/50 flex items-center gap-3 animate-in slide-in-from-right-full duration-500">
-                            <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm ${act.type === 'sync' ? 'bg-blue-50 text-blue-600' : 'bg-emerald-50 text-emerald-600'}`}>
+                <div className="fixed top-8 right-8 w-64 space-y-3 pointer-events-none z-[100]">
+                    {activities.map((act) => (
+                        <div key={act.id} className="activity-toast bg-white/90 backdrop-blur-2xl p-4 rounded-2xl shadow-2xl border border-white/50 flex items-center gap-4 animate-in slide-in-from-right-full fade-in duration-500">
+                            <div className={`w-10 h-10 rounded-2xl flex items-center justify-center text-lg shadow-sm ${act.type === 'sync' ? 'bg-blue-50 text-blue-600' : 'bg-emerald-50 text-emerald-600'}`}>
                                 {act.type === 'sync' ? '☁️' : '📝'}
                             </div>
                             <div className="flex-1">
-                                <p className="text-[10px] font-black text-gray-400 leading-none mb-1 uppercase tracking-tighter">{act.time}</p>
-                                <p className="text-xs font-bold text-gray-700 leading-tight">{act.msg}</p>
+                                <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">{act.time}</p>
+                                <p className="text-sm font-bold text-gray-800 leading-snug">{act.msg}</p>
                             </div>
                         </div>
                     ))}
@@ -453,13 +453,19 @@
             });
 
             const addActivity = (msg, type = 'action') => {
+                const id = Date.now();
                 const newAct = {
-                    id: Date.now(),
+                    id,
                     msg,
                     type,
                     time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
                 };
-                setActivities(prev => [...prev.slice(-10), newAct]);
+                setActivities(prev => [...prev, newAct]);
+
+                // Auto-remove after 4 seconds
+                setTimeout(() => {
+                    setActivities(prev => prev.filter(a => a.id !== id));
+                }, 4000);
             };
 
             // Auth State Listener
