@@ -1,833 +1,441 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Nigeria Tax Compliance Tracker - Professional Edition</title>
+    <title>Master Tax & Inventory Spreadsheet - Nigeria Compliance</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.29/jspdf.plugin.autotable.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <link
+        href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Inter:wght@300;400;500;600;700&display=swap"
+        rel="stylesheet">
     <style>
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+        :root {
+            --excel-green: #217346;
+            --excel-border: #d1d5db;
         }
-        .tab-active {
-            border-bottom: 3px solid #059669;
-            color: #059669;
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: #f3f4f6;
+        }
+
+        .spreadsheet-container {
+            background: white;
+            border: 1px solid var(--excel-border);
+            overflow: auto;
+        }
+
+        table {
+            border-collapse: separate;
+            border-spacing: 0;
+            width: 100%;
+        }
+
+        th {
+            background: #f9fafb;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+            border-bottom: 2px solid var(--excel-border);
+            border-right: 1px solid var(--excel-border);
+            padding: 8px 12px;
+            text-transform: uppercase;
+            font-size: 0.75rem;
+            font-weight: 700;
+            color: #4b5563;
+        }
+
+        td {
+            border-bottom: 1px solid #e5e7eb;
+            border-right: 1px solid #e5e7eb;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.85rem;
+            padding: 0;
+        }
+
+        input,
+        select {
+            width: 100%;
+            height: 100%;
+            padding: 8px 12px;
+            border: none;
+            outline: none;
+            background: transparent;
+        }
+
+        input:focus {
+            background: #ecfdf5;
+            box-shadow: inset 0 0 0 2px var(--excel-green);
+        }
+
+        .row-index {
+            background: #f9fafb;
+            width: 40px;
+            text-align: center;
+            color: #9ca3af;
+            font-weight: bold;
+            border-right: 2px solid var(--excel-border);
+        }
+
+        .stat-card {
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .stat-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+        }
+
+        .sheet-tab {
+            cursor: pointer;
+            border-bottom: 3px solid transparent;
+            padding: 12px 24px;
+            font-weight: 600;
+            color: #6b7280;
+        }
+
+        .sheet-tab.active {
+            border-bottom-color: var(--excel-green);
+            color: var(--excel-green);
+            background: #f0fdf4;
+        }
+
+        .glass-header {
+            background: rgba(255, 255, 255, 0.9);
+            backdrop-filter: blur(8px);
+            border-bottom: 1px solid #e5e7eb;
+        }
+
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: #d1d5db;
+            border-radius: 4px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: #9ca3af;
         }
     </style>
 </head>
-<body class="min-h-screen bg-gradient-to-br from-green-50 to-emerald-50">
-    <div id="root"></div>
+
+<body class="h-screen flex flex-col overflow-hidden">
+    <div id="root" class="h-full"></div>
 
     <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-    
+
     <script type="text/babel">
-        const { useState, useMemo, useEffect } = React;
+        const { useState, useEffect, useMemo, useRef } = React;
 
-        const TaxComplianceTracker = () => {
-            const [businessInfo, setBusinessInfo] = useState({
-                name: '',
-                rcNumber: '',
-                tin: '',
-                fiscalYearStart: new Date().getFullYear() + '-01-01'
-            });
+        const DB_KEY = 'tax_master_v5';
+        const DataService = {
+            load: () => JSON.parse(localStorage.getItem(DB_KEY)) || { products: [], sales: [], expenses: [], business: { name: '', pin: null } },
+            save: (data) => localStorage.setItem(DB_KEY, JSON.stringify(data))
+        };
 
-            const [salesEntries, setSalesEntries] = useState([]);
-            const [expenseEntries, setExpenseEntries] = useState([]);
-            const [activeTab, setActiveTab] = useState('entry');
-            const [viewPeriod, setViewPeriod] = useState('weekly');
-
-            // Auto-save to localStorage
-            useEffect(() => {
-                const data = {
-                    businessInfo,
-                    salesEntries,
-                    expenseEntries,
-                    lastSaved: new Date().toISOString()
-                };
-                localStorage.setItem('nigeriaFaxTracker', JSON.stringify(data));
-            }, [businessInfo, salesEntries, expenseEntries]);
-
-            // Load from localStorage on mount
-            useEffect(() => {
-                const saved = localStorage.getItem('nigeriaFaxTracker');
-                if (saved) {
-                    try {
-                        const data = JSON.parse(saved);
-                        setBusinessInfo(data.businessInfo || businessInfo);
-                        setSalesEntries(data.salesEntries || []);
-                        setExpenseEntries(data.expenseEntries || []);
-                    } catch (e) {
-                        console.error('Failed to load saved data');
-                    }
-                }
-            }, []);
-
-            const addSalesEntry = () => {
-                setSalesEntries([...salesEntries, {
-                    id: Date.now(),
-                    date: new Date().toISOString().split('T')[0],
-                    invoiceNo: '',
-                    customerName: '',
-                    customerTIN: '',
-                    description: '',
-                    quantity: 0,
-                    unitPrice: 0,
-                    paymentMethod: 'Cash',
-                    category: 'Goods'
-                }]);
-            };
-
-            const addExpenseEntry = () => {
-                setExpenseEntries([...expenseEntries, {
-                    id: Date.now(),
-                    date: new Date().toISOString().split('T')[0],
-                    category: 'Supplies',
-                    vendorName: '',
-                    vendorTIN: '',
-                    receiptNo: '',
-                    description: '',
-                    grossAmount: 0,
-                    whtRate: 0,
-                    paymentMethod: 'Cash',
-                    deductible: 'Yes'
-                }]);
-            };
-
-            const updateSalesEntry = (id, field, value) => {
-                setSalesEntries(salesEntries.map(entry => 
-                    entry.id === id ? { ...entry, [field]: value } : entry
-                ));
-            };
-
-            const updateExpenseEntry = (id, field, value) => {
-                setExpenseEntries(expenseEntries.map(entry => 
-                    entry.id === id ? { ...entry, [field]: value } : entry
-                ));
-            };
-
-            const deleteSalesEntry = (id) => {
-                setSalesEntries(salesEntries.filter(entry => entry.id !== id));
-            };
-
-            const deleteExpenseEntry = (id) => {
-                setExpenseEntries(expenseEntries.filter(entry => entry.id !== id));
-            };
-
-            const calculateSalesMetrics = (entry) => {
-                const grossAmount = entry.quantity * entry.unitPrice;
-                const vatAmount = grossAmount * 0.075;
-                const totalAmount = grossAmount + vatAmount;
-                return { grossAmount, vatAmount, totalAmount };
-            };
-
-            const calculateExpenseMetrics = (entry) => {
-                const grossAmount = parseFloat(entry.grossAmount) || 0;
-                const vatAmount = grossAmount * 0.075;
-                const whtAmount = grossAmount * (parseFloat(entry.whtRate) / 100);
-                const totalAmount = grossAmount + vatAmount;
-                return { vatAmount, whtAmount, totalAmount };
-            };
-
-            const getWeekNumber = (date) => {
-                const d = new Date(date);
-                d.setHours(0, 0, 0, 0);
-                d.setDate(d.getDate() + 4 - (d.getDay() || 7));
-                const yearStart = new Date(d.getFullYear(), 0, 1);
-                return Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
-            };
-
-            const getMonthYear = (date) => {
-                const d = new Date(date);
-                return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
-            };
-
-            const getYear = (date) => {
-                return new Date(date).getFullYear();
-            };
-
-            const aggregateData = (entries, type, period) => {
-                const grouped = {};
-                
-                entries.forEach(entry => {
-                    let key;
-                    if (period === 'weekly') {
-                        key = `Week ${getWeekNumber(entry.date)} - ${getYear(entry.date)}`;
-                    } else if (period === 'monthly') {
-                        const monthYear = getMonthYear(entry.date);
-                        const date = new Date(monthYear + '-01');
-                        key = date.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
-                    } else {
-                        key = getYear(entry.date).toString();
-                    }
-
-                    if (!grouped[key]) {
-                        grouped[key] = [];
-                    }
-                    grouped[key].push(entry);
-                });
-
-                return grouped;
-            };
-
-            const calculatePeriodSummary = (salesGroup, expenseGroup) => {
-                const totalGrossSales = salesGroup.reduce((sum, entry) => {
-                    const { grossAmount } = calculateSalesMetrics(entry);
-                    return sum + grossAmount;
-                }, 0);
-
-                const totalVATCollected = salesGroup.reduce((sum, entry) => {
-                    const { vatAmount } = calculateSalesMetrics(entry);
-                    return sum + vatAmount;
-                }, 0);
-
-                const totalSalesRevenue = salesGroup.reduce((sum, entry) => {
-                    const { totalAmount } = calculateSalesMetrics(entry);
-                    return sum + totalAmount;
-                }, 0);
-
-                const totalGrossExpenses = expenseGroup.reduce((sum, entry) => {
-                    return sum + (parseFloat(entry.grossAmount) || 0);
-                }, 0);
-
-                const totalVATOnPurchases = expenseGroup.reduce((sum, entry) => {
-                    const { vatAmount } = calculateExpenseMetrics(entry);
-                    return sum + vatAmount;
-                }, 0);
-
-                const totalWHTOnExpenses = expenseGroup.reduce((sum, entry) => {
-                    const { whtAmount } = calculateExpenseMetrics(entry);
-                    return sum + whtAmount;
-                }, 0);
-
-                const totalExpenses = expenseGroup.reduce((sum, entry) => {
-                    const { totalAmount } = calculateExpenseMetrics(entry);
-                    return sum + totalAmount;
-                }, 0);
-
-                const netVATPayable = totalVATCollected - totalVATOnPurchases;
-                const assessableProfit = totalGrossSales - totalGrossExpenses;
-                const companyIncomeTax = assessableProfit > 0 ? assessableProfit * 0.30 : 0;
-                const educationTax = assessableProfit > 0 ? assessableProfit * 0.025 : 0;
-                const totalTaxLiability = netVATPayable + companyIncomeTax + educationTax;
-
-                return {
-                    totalGrossSales,
-                    totalVATCollected,
-                    totalSalesRevenue,
-                    totalGrossExpenses,
-                    totalVATOnPurchases,
-                    totalWHTOnExpenses,
-                    totalExpenses,
-                    netVATPayable,
-                    assessableProfit,
-                    companyIncomeTax,
-                    educationTax,
-                    totalTaxLiability
-                };
-            };
-
-            const summaryData = useMemo(() => {
-                const salesByPeriod = aggregateData(salesEntries, 'sales', viewPeriod);
-                const expensesByPeriod = aggregateData(expenseEntries, 'expenses', viewPeriod);
-
-                const allPeriods = new Set([
-                    ...Object.keys(salesByPeriod),
-                    ...Object.keys(expensesByPeriod)
-                ]);
-
-                const summaries = {};
-                allPeriods.forEach(period => {
-                    summaries[period] = calculatePeriodSummary(
-                        salesByPeriod[period] || [],
-                        expensesByPeriod[period] || []
-                    );
-                });
-
-                return summaries;
-            }, [salesEntries, expenseEntries, viewPeriod]);
-
-            const exportToCSV = () => {
-                let csv = 'NIGERIA TAX COMPLIANCE TRACKER - PROFESSIONAL EDITION\n\n';
-                csv += `Business Name:,${businessInfo.name}\n`;
-                csv += `RC Number:,${businessInfo.rcNumber}\n`;
-                csv += `TIN:,${businessInfo.tin}\n`;
-                csv += `Fiscal Year Start:,${businessInfo.fiscalYearStart}\n`;
-                csv += `Export Date:,${new Date().toLocaleDateString()}\n\n`;
-
-                csv += '=== SALES ENTRIES ===\n';
-                csv += 'Date,Invoice No,Customer,Customer TIN,Description,Quantity,Unit Price,Gross Amount,VAT (7.5%),Total,Payment Method,Category\n';
-                salesEntries.forEach(entry => {
-                    const { grossAmount, vatAmount, totalAmount } = calculateSalesMetrics(entry);
-                    csv += `${entry.date},${entry.invoiceNo},${entry.customerName},${entry.customerTIN},${entry.description},${entry.quantity},${entry.unitPrice},${grossAmount.toFixed(2)},${vatAmount.toFixed(2)},${totalAmount.toFixed(2)},${entry.paymentMethod},${entry.category}\n`;
-                });
-
-                csv += '\n=== EXPENSE ENTRIES ===\n';
-                csv += 'Date,Category,Vendor,Vendor TIN,Receipt No,Description,Gross Amount,VAT (7.5%),WHT Rate,WHT Amount,Total,Payment Method,Deductible\n';
-                expenseEntries.forEach(entry => {
-                    const { vatAmount, whtAmount, totalAmount } = calculateExpenseMetrics(entry);
-                    csv += `${entry.date},${entry.category},${entry.vendorName},${entry.vendorTIN},${entry.receiptNo},${entry.description},${entry.grossAmount},${vatAmount.toFixed(2)},${entry.whtRate}%,${whtAmount.toFixed(2)},${totalAmount.toFixed(2)},${entry.paymentMethod},${entry.deductible}\n`;
-                });
-
-                csv += `\n=== ${viewPeriod.toUpperCase()} SUMMARY ===\n`;
-                csv += 'Period,Gross Sales,VAT Collected,Sales Revenue,Gross Expenses,VAT on Purchases,WHT on Expenses,Total Expenses,Net VAT Payable,Assessable Profit,CIT (30%),Education Tax (2.5%),Total Tax Liability\n';
-                
-                Object.entries(summaryData).forEach(([period, summary]) => {
-                    csv += `${period},${summary.totalGrossSales.toFixed(2)},${summary.totalVATCollected.toFixed(2)},${summary.totalSalesRevenue.toFixed(2)},${summary.totalGrossExpenses.toFixed(2)},${summary.totalVATOnPurchases.toFixed(2)},${summary.totalWHTOnExpenses.toFixed(2)},${summary.totalExpenses.toFixed(2)},${summary.netVATPayable.toFixed(2)},${summary.assessableProfit.toFixed(2)},${summary.companyIncomeTax.toFixed(2)},${summary.educationTax.toFixed(2)},${summary.totalTaxLiability.toFixed(2)}\n`;
-                });
-
-                const blob = new Blob([csv], { type: 'text/csv' });
-                const url = window.URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.href = url;
-                a.download = `Tax_Compliance_${viewPeriod}_${new Date().toISOString().split('T')[0]}.csv`;
-                a.click();
-            };
-
-            const clearAllData = () => {
-                if (confirm('Are you sure you want to clear all data? This cannot be undone.')) {
-                    setSalesEntries([]);
-                    setExpenseEntries([]);
-                    setBusinessInfo({
-                        name: '',
-                        rcNumber: '',
-                        tin: '',
-                        fiscalYearStart: new Date().getFullYear() + '-01-01'
-                    });
-                    localStorage.removeItem('nigeriaFaxTracker');
-                }
-            };
-
+        // --- AUTH ---
+        const AuthScreen = ({ onLogin, hasAccount, onSetup }) => {
+            const [pin, setPin] = useState('');
             return (
-                <div className="min-h-screen bg-gradient-to-br from-green-50 to-emerald-50 p-4">
-                    <div className="max-w-7xl mx-auto">
-                        {/* Header */}
-                        <div className="bg-white rounded-lg shadow-lg p-6 mb-6">
-                            <div className="flex items-center justify-between mb-6">
-                                <div>
-                                    <h1 className="text-3xl font-bold text-green-800">Nigeria Tax Compliance Tracker</h1>
-                                    <p className="text-gray-600 mt-1">Professional Edition - Weekly, Monthly & Yearly Reports</p>
-                                </div>
-                                <div className="flex gap-2">
-                                    <button
-                                        onClick={exportToCSV}
-                                        className="flex items-center gap-2 bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition"
-                                    >
-                                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-                                        </svg>
-                                        Export CSV
-                                    </button>
-                                    <button
-                                        onClick={clearAllData}
-                                        className="flex items-center gap-2 bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 transition"
-                                    >
-                                        Clear Data
-                                    </button>
-                                </div>
+                <div className="flex items-center justify-center h-full bg-[#1b4332]">
+                    <div className="bg-white p-10 rounded-3xl shadow-2xl w-full max-w-md m-4 border-t-8 border-[#217346]">
+                        <div className="text-center mb-8">
+                            <div className="w-20 h-20 bg-[#f0fdf4] rounded-2xl flex items-center justify-center mx-auto mb-4 text-[#217346]">
+                                <svg className="w-12 h-12" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04m12.892 7.781c.059.39.088.788.088 1.191 0 5.841-4.467 10.583-10 11.162V24"></path></svg>
                             </div>
-
-                            {/* Business Info */}
-                            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">Business Name</label>
-                                    <input
-                                        type="text"
-                                        value={businessInfo.name}
-                                        onChange={(e) => setBusinessInfo({...businessInfo, name: e.target.value})}
-                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                                        placeholder="Enter business name"
-                                    />
-                                </div>
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">RC Number</label>
-                                    <input
-                                        type="text"
-                                        value={businessInfo.rcNumber}
-                                        onChange={(e) => setBusinessInfo({...businessInfo, rcNumber: e.target.value})}
-                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                                        placeholder="RC123456"
-                                    />
-                                </div>
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">TIN</label>
-                                    <input
-                                        type="text"
-                                        value={businessInfo.tin}
-                                        onChange={(e) => setBusinessInfo({...businessInfo, tin: e.target.value})}
-                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                                        placeholder="Tax ID Number"
-                                    />
-                                </div>
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">Fiscal Year Start</label>
-                                    <input
-                                        type="date"
-                                        value={businessInfo.fiscalYearStart}
-                                        onChange={(e) => setBusinessInfo({...businessInfo, fiscalYearStart: e.target.value})}
-                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                                    />
-                                </div>
-                            </div>
+                            <h1 className="text-3xl font-black text-gray-800">Tax Master</h1>
+                            <p className="text-gray-500 mt-2">Nigeria's Premier Inventory Spreadsheet</p>
                         </div>
-
-                        {/* Tabs */}
-                        <div className="bg-white rounded-lg shadow-lg mb-6">
-                            <div className="flex border-b">
-                                <button
-                                    onClick={() => setActiveTab('entry')}
-                                    className={`px-6 py-4 font-semibold transition ${activeTab === 'entry' ? 'tab-active' : 'text-gray-600 hover:text-green-600'}`}
-                                >
-                                    Data Entry
-                                </button>
-                                <button
-                                    onClick={() => setActiveTab('summary')}
-                                    className={`px-6 py-4 font-semibold transition ${activeTab === 'summary' ? 'tab-active' : 'text-gray-600 hover:text-green-600'}`}
-                                >
-                                    Tax Summary
-                                </button>
-                            </div>
-
-                            {activeTab === 'entry' && (
-                                <div className="p-6">
-                                    {/* Sales Section */}
-                                    <div className="mb-8">
-                                        <div className="flex items-center justify-between mb-4">
-                                            <h2 className="text-2xl font-bold text-green-800">Sales Entries</h2>
-                                            <button
-                                                onClick={addSalesEntry}
-                                                className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition"
-                                            >
-                                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                                                </svg>
-                                                Add Sale
-                                            </button>
-                                        </div>
-
-                                        <div className="overflow-x-auto">
-                                            <table className="w-full text-sm">
-                                                <thead className="bg-gray-50">
-                                                    <tr>
-                                                        <th className="px-2 py-3 text-left font-semibold">Date</th>
-                                                        <th className="px-2 py-3 text-left font-semibold">Invoice #</th>
-                                                        <th className="px-2 py-3 text-left font-semibold">Customer</th>
-                                                        <th className="px-2 py-3 text-left font-semibold">Description</th>
-                                                        <th className="px-2 py-3 text-left font-semibold">Qty</th>
-                                                        <th className="px-2 py-3 text-left font-semibold">Unit Price</th>
-                                                        <th className="px-2 py-3 text-left font-semibold">Gross</th>
-                                                        <th className="px-2 py-3 text-left font-semibold">VAT</th>
-                                                        <th className="px-2 py-3 text-left font-semibold">Total</th>
-                                                        <th className="px-2 py-3 text-left font-semibold">Payment</th>
-                                                        <th className="px-2 py-3 text-left font-semibold">Action</th>
-                                                    </tr>
-                                                </thead>
-                                                <tbody>
-                                                    {salesEntries.map((entry) => {
-                                                        const { grossAmount, vatAmount, totalAmount } = calculateSalesMetrics(entry);
-                                                        return (
-                                                            <tr key={entry.id} className="border-b hover:bg-gray-50">
-                                                                <td className="px-2 py-2">
-                                                                    <input
-                                                                        type="date"
-                                                                        value={entry.date}
-                                                                        onChange={(e) => updateSalesEntry(entry.id, 'date', e.target.value)}
-                                                                        className="w-32 px-2 py-1 border rounded"
-                                                                    />
-                                                                </td>
-                                                                <td className="px-2 py-2">
-                                                                    <input
-                                                                        type="text"
-                                                                        value={entry.invoiceNo}
-                                                                        onChange={(e) => updateSalesEntry(entry.id, 'invoiceNo', e.target.value)}
-                                                                        className="w-24 px-2 py-1 border rounded"
-                                                                        placeholder="INV-001"
-                                                                    />
-                                                                </td>
-                                                                <td className="px-2 py-2">
-                                                                    <input
-                                                                        type="text"
-                                                                        value={entry.customerName}
-                                                                        onChange={(e) => updateSalesEntry(entry.id, 'customerName', e.target.value)}
-                                                                        className="w-32 px-2 py-1 border rounded"
-                                                                        placeholder="Customer"
-                                                                    />
-                                                                </td>
-                                                                <td className="px-2 py-2">
-                                                                    <input
-                                                                        type="text"
-                                                                        value={entry.description}
-                                                                        onChange={(e) => updateSalesEntry(entry.id, 'description', e.target.value)}
-                                                                        className="w-40 px-2 py-1 border rounded"
-                                                                        placeholder="Description"
-                                                                    />
-                                                                </td>
-                                                                <td className="px-2 py-2">
-                                                                    <input
-                                                                        type="number"
-                                                                        value={entry.quantity}
-                                                                        onChange={(e) => updateSalesEntry(entry.id, 'quantity', parseFloat(e.target.value) || 0)}
-                                                                        className="w-16 px-2 py-1 border rounded"
-                                                                        min="0"
-                                                                    />
-                                                                </td>
-                                                                <td className="px-2 py-2">
-                                                                    <input
-                                                                        type="number"
-                                                                        value={entry.unitPrice}
-                                                                        onChange={(e) => updateSalesEntry(entry.id, 'unitPrice', parseFloat(e.target.value) || 0)}
-                                                                        className="w-24 px-2 py-1 border rounded"
-                                                                        min="0"
-                                                                        step="0.01"
-                                                                    />
-                                                                </td>
-                                                                <td className="px-2 py-2 text-right font-medium">₦{grossAmount.toFixed(2)}</td>
-                                                                <td className="px-2 py-2 text-right text-green-600">₦{vatAmount.toFixed(2)}</td>
-                                                                <td className="px-2 py-2 text-right font-bold">₦{totalAmount.toFixed(2)}</td>
-                                                                <td className="px-2 py-2">
-                                                                    <select
-                                                                        value={entry.paymentMethod}
-                                                                        onChange={(e) => updateSalesEntry(entry.id, 'paymentMethod', e.target.value)}
-                                                                        className="w-24 px-2 py-1 border rounded"
-                                                                    >
-                                                                        <option>Cash</option>
-                                                                        <option>Bank</option>
-                                                                        <option>POS</option>
-                                                                        <option>Mobile</option>
-                                                                    </select>
-                                                                </td>
-                                                                <td className="px-2 py-2">
-                                                                    <button
-                                                                        onClick={() => deleteSalesEntry(entry.id)}
-                                                                        className="text-red-600 hover:text-red-800"
-                                                                    >
-                                                                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                                                                        </svg>
-                                                                    </button>
-                                                                </td>
-                                                            </tr>
-                                                        );
-                                                    })}
-                                                </tbody>
-                                            </table>
-                                        </div>
-                                        {salesEntries.length === 0 && (
-                                            <p className="text-center text-gray-500 py-8">No sales entries yet. Click "Add Sale" to get started.</p>
-                                        )}
-                                    </div>
-
-                                    {/* Expenses Section */}
-                                    <div>
-                                        <div className="flex items-center justify-between mb-4">
-                                            <h2 className="text-2xl font-bold text-green-800">Expense Entries</h2>
-                                            <button
-                                                onClick={addExpenseEntry}
-                                                className="flex items-center gap-2 bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 transition"
-                                            >
-                                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                                                </svg>
-                                                Add Expense
-                                            </button>
-                                        </div>
-
-                                        <div className="overflow-x-auto">
-                                            <table className="w-full text-sm">
-                                                <thead className="bg-gray-50">
-                                                    <tr>
-                                                        <th className="px-2 py-3 text-left font-semibold">Date</th>
-                                                        <th className="px-2 py-3 text-left font-semibold">Category</th>
-                                                        <th className="px-2 py-3 text-left font-semibold">Vendor</th>
-                                                        <th className="px-2 py-3 text-left font-semibold">Description</th>
-                                                        <th className="px-2 py-3 text-left font-semibold">Gross</th>
-                                                        <th className="px-2 py-3 text-left font-semibold">VAT</th>
-                                                        <th className="px-2 py-3 text-left font-semibold">WHT %</th>
-                                                        <th className="px-2 py-3 text-left font-semibold">WHT Amt</th>
-                                                        <th className="px-2 py-3 text-left font-semibold">Total</th>
-                                                        <th className="px-2 py-3 text-left font-semibold">Payment</th>
-                                                        <th className="px-2 py-3 text-left font-semibold">Action</th>
-                                                    </tr>
-                                                </thead>
-                                                <tbody>
-                                                    {expenseEntries.map((entry) => {
-                                                        const { vatAmount, whtAmount, totalAmount } = calculateExpenseMetrics(entry);
-                                                        return (
-                                                            <tr key={entry.id} className="border-b hover:bg-gray-50">
-                                                                <td className="px-2 py-2">
-                                                                    <input
-                                                                        type="date"
-                                                                        value={entry.date}
-                                                                        onChange={(e) => updateExpenseEntry(entry.id, 'date', e.target.value)}
-                                                                        className="w-32 px-2 py-1 border rounded"
-                                                                    />
-                                                                </td>
-                                                                <td className="px-2 py-2">
-                                                                    <select
-                                                                        value={entry.category}
-                                                                        onChange={(e) => updateExpenseEntry(entry.id, 'category', e.target.value)}
-                                                                        className="w-28 px-2 py-1 border rounded"
-                                                                    >
-                                                                        <option>Supplies</option>
-                                                                        <option>Rent</option>
-                                                                        <option>Utilities</option>
-                                                                        <option>Salaries</option>
-                                                                        <option>Marketing</option>
-                                                                        <option>Transport</option>
-                                                                        <option>Other</option>
-                                                                    </select>
-                                                                </td>
-                                                                <td className="px-2 py-2">
-                                                                    <input
-                                                                        type="text"
-                                                                        value={entry.vendorName}
-                                                                        onChange={(e) => updateExpenseEntry(entry.id, 'vendorName', e.target.value)}
-                                                                        className="w-32 px-2 py-1 border rounded"
-                                                                        placeholder="Vendor"
-                                                                    />
-                                                                </td>
-                                                                <td className="px-2 py-2">
-                                                                    <input
-                                                                        type="text"
-                                                                        value={entry.description}
-                                                                        onChange={(e) => updateExpenseEntry(entry.id, 'description', e.target.value)}
-                                                                        className="w-40 px-2 py-1 border rounded"
-                                                                        placeholder="Description"
-                                                                    />
-                                                                </td>
-                                                                <td className="px-2 py-2">
-                                                                    <input
-                                                                        type="number"
-                                                                        value={entry.grossAmount}
-                                                                        onChange={(e) => updateExpenseEntry(entry.id, 'grossAmount', e.target.value)}
-                                                                        className="w-24 px-2 py-1 border rounded"
-                                                                        min="0"
-                                                                        step="0.01"
-                                                                    />
-                                                                </td>
-                                                                <td className="px-2 py-2 text-right text-green-600">₦{vatAmount.toFixed(2)}</td>
-                                                                <td className="px-2 py-2">
-                                                                    <input
-                                                                        type="number"
-                                                                        value={entry.whtRate}
-                                                                        onChange={(e) => updateExpenseEntry(entry.id, 'whtRate', parseFloat(e.target.value) || 0)}
-                                                                        className="w-16 px-2 py-1 border rounded"
-                                                                        min="0"
-                                                                        max="100"
-                                                                        step="0.1"
-                                                                    />
-                                                                </td>
-                                                                <td className="px-2 py-2 text-right text-orange-600">₦{whtAmount.toFixed(2)}</td>
-                                                                <td className="px-2 py-2 text-right font-bold">₦{totalAmount.toFixed(2)}</td>
-                                                                <td className="px-2 py-2">
-                                                                    <select
-                                                                        value={entry.paymentMethod}
-                                                                        onChange={(e) => updateExpenseEntry(entry.id, 'paymentMethod', e.target.value)}
-                                                                        className="w-24 px-2 py-1 border rounded"
-                                                                    >
-                                                                        <option>Cash</option>
-                                                                        <option>Bank</option>
-                                                                        <option>POS</option>
-                                                                        <option>Mobile</option>
-                                                                    </select>
-                                                                </td>
-                                                                <td className="px-2 py-2">
-                                                                    <button
-                                                                        onClick={() => deleteExpenseEntry(entry.id)}
-                                                                        className="text-red-600 hover:text-red-800"
-                                                                    >
-                                                                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                                                                        </svg>
-                                                                    </button>
-                                                                </td>
-                                                            </tr>
-                                                        );
-                                                    })}
-                                                </tbody>
-                                            </table>
-                                        </div>
-                                        {expenseEntries.length === 0 && (
-                                            <p className="text-center text-gray-500 py-8">No expense entries yet. Click "Add Expense" to get started.</p>
-                                        )}
-                                    </div>
-                                </div>
-                            )}
-
-                            {activeTab === 'summary' && (
-                                <div className="p-6">
-                                    <div className="flex justify-between items-center mb-6">
-                                        <h2 className="text-2xl font-bold text-green-800">Tax Summary Reports</h2>
-                                        <div className="flex gap-2">
-                                            <button
-                                                onClick={() => setViewPeriod('weekly')}
-                                                className={`px-4 py-2 rounded-lg font-semibold transition ${viewPeriod === 'weekly' ? 'bg-green-600 text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}`}
-                                            >
-                                                Weekly
-                                            </button>
-                                            <button
-                                                onClick={() => setViewPeriod('monthly')}
-                                                className={`px-4 py-2 rounded-lg font-semibold transition ${viewPeriod === 'monthly' ? 'bg-green-600 text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}`}
-                                            >
-                                                Monthly
-                                            </button>
-                                            <button
-                                                onClick={() => setViewPeriod('yearly')}
-                                                className={`px-4 py-2 rounded-lg font-semibold transition ${viewPeriod === 'yearly' ? 'bg-green-600 text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}`}
-                                            >
-                                                Yearly
-                                            </button>
-                                        </div>
-                                    </div>
-
-                                    {Object.keys(summaryData).length === 0 ? (
-                                        <div className="text-center py-12">
-                                            <p className="text-gray-500 text-lg">No data to display. Start by adding sales and expenses in the Data Entry tab.</p>
-                                        </div>
-                                    ) : (
-                                        <div className="space-y-6">
-                                            {Object.entries(summaryData).sort().reverse().map(([period, summary]) => (
-                                                <div key={period} className="bg-gradient-to-r from-green-600 to-emerald-600 rounded-lg shadow-lg p-6 text-white">
-                                                    <h3 className="text-2xl font-bold mb-6">{period}</h3>
-                                                    <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-                                                        <div className="bg-white bg-opacity-20 rounded-lg p-4">
-                                                            <h4 className="text-lg font-semibold mb-3">Revenue</h4>
-                                                            <div className="space-y-2">
-                                                                <div className="flex justify-between">
-                                                                    <span>Gross Sales:</span>
-                                                                    <span className="font-bold">₦{summary.totalGrossSales.toFixed(2)}</span>
-                                                                </div>
-                                                                <div className="flex justify-between">
-                                                                    <span>VAT Collected:</span>
-                                                                    <span className="font-bold">₦{summary.totalVATCollected.toFixed(2)}</span>
-                                                                </div>
-                                                                <div className="flex justify-between border-t border-white border-opacity-30 pt-2">
-                                                                    <span>Total Revenue:</span>
-                                                                    <span className="font-bold text-xl">₦{summary.totalSalesRevenue.toFixed(2)}</span>
-                                                                </div>
-                                                            </div>
-                                                        </div>
-
-                                                        <div className="bg-white bg-opacity-20 rounded-lg p-4">
-                                                            <h4 className="text-lg font-semibold mb-3">Expenses</h4>
-                                                            <div className="space-y-2">
-                                                                <div className="flex justify-between">
-                                                                    <span>Gross Expenses:</span>
-                                                                    <span className="font-bold">₦{summary.totalGrossExpenses.toFixed(2)}</span>
-                                                                </div>
-                                                                <div className="flex justify-between">
-                                                                    <span>VAT on Purchases:</span>
-                                                                    <span className="font-bold">₦{summary.totalVATOnPurchases.toFixed(2)}</span>
-                                                                </div>
-                                                                <div className="flex justify-between">
-                                                                    <span>WHT Deducted:</span>
-                                                                    <span className="font-bold">₦{summary.totalWHTOnExpenses.toFixed(2)}</span>
-                                                                </div>
-                                                                <div className="flex justify-between border-t border-white border-opacity-30 pt-2">
-                                                                    <span>Total Expenses:</span>
-                                                                    <span className="font-bold text-xl">₦{summary.totalExpenses.toFixed(2)}</span>
-                                                                </div>
-                                                            </div>
-                                                        </div>
-
-                                                        <div className="bg-white bg-opacity-20 rounded-lg p-4">
-                                                            <h4 className="text-lg font-semibold mb-3">Profit & Loss</h4>
-                                                            <div className="space-y-2">
-                                                                <div className="flex justify-between">
-                                                                    <span>Assessable Profit:</span>
-                                                                    <span className={`font-bold ${summary.assessableProfit >= 0 ? 'text-green-200' : 'text-red-200'}`}>
-                                                                        ₦{summary.assessableProfit.toFixed(2)}
-                                                                    </span>
-                                                                </div>
-                                                                <div className="flex justify-between text-sm">
-                                                                    <span>Revenue - Expenses</span>
-                                                                </div>
-                                                            </div>
-                                                        </div>
-
-                                                        <div className="bg-white bg-opacity-20 rounded-lg p-4">
-                                                            <h4 className="text-lg font-semibold mb-3">Tax Liability</h4>
-                                                            <div className="space-y-2">
-                                                                <div className="flex justify-between text-sm">
-                                                                    <span>Net VAT Payable:</span>
-                                                                    <span className="font-bold">₦{summary.netVATPayable.toFixed(2)}</span>
-                                                                </div>
-                                                                <div className="flex justify-between text-sm">
-                                                                    <span>CIT (30%):</span>
-                                                                    <span className="font-bold">₦{summary.companyIncomeTax.toFixed(2)}</span>
-                                                                </div>
-                                                                <div className="flex justify-between text-sm">
-                                                                    <span>Education Tax (2.5%):</span>
-                                                                    <span className="font-bold">₦{summary.educationTax.toFixed(2)}</span>
-                                                                </div>
-                                                                <div className="flex justify-between border-t border-white border-opacity-30 pt-2">
-                                                                    <span>Total Tax:</span>
-                                                                    <span className="font-bold text-xl">₦{summary.totalTaxLiability.toFixed(2)}</span>
-                                                                </div>
-                                                            </div>
-                                                        </div>
-                                                    </div>
-
-                                                    <div className="mt-6 bg-white bg-opacity-10 rounded-lg p-4">
-                                                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
-                                                            <div>
-                                                                <p className="text-sm opacity-90">Gross Profit Margin</p>
-                                                                <p className="text-2xl font-bold">
-                                                                    {summary.totalGrossSales > 0 
-                                                                        ? ((summary.assessableProfit / summary.totalGrossSales) * 100).toFixed(1)
-                                                                        : '0.0'}%
-                                                                </p>
-                                                            </div>
-                                                            <div>
-                                                                <p className="text-sm opacity-90">Tax Rate</p>
-                                                                <p className="text-2xl font-bold">
-                                                                    {summary.assessableProfit > 0 
-                                                                        ? ((summary.totalTaxLiability / summary.assessableProfit) * 100).toFixed(1)
-                                                                        : '0.0'}%
-                                                                </p>
-                                                            </div>
-                                                            <div>
-                                                                <p className="text-sm opacity-90">Net Profit After Tax</p>
-                                                                <p className="text-2xl font-bold">
-                                                                    ₦{(summary.assessableProfit - summary.totalTaxLiability).toFixed(2)}
-                                                                </p>
-                                                            </div>
-                                                            <div>
-                                                                <p className="text-sm opacity-90">VAT Offset</p>
-                                                                <p className="text-2xl font-bold">
-                                                                    ₦{summary.totalVATOnPurchases.toFixed(2)}
-                                                                </p>
-                                                            </div>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    )}
-                                </div>
-                            )}
-                        </div>
-
-                        {/* Info Card */}
-                        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                            <h3 className="font-semibold text-blue-900 mb-2">📌 Key Features:</h3>
-                            <ul className="text-sm text-blue-800 space-y-1">
-                                <li>• <strong>Auto-Save:</strong> Your data is automatically saved to your browser</li>
-                                <li>• <strong>VAT Calculations:</strong> Output VAT (7.5% on sales) minus Input VAT (7.5% on purchases)</li>
-                                <li>• <strong>Company Income Tax:</strong> 30% on assessable profit (can be adjusted for small companies)</li>
-                                <li>• <strong>Tertiary Education Tax:</strong> 2.5% on assessable profit</li>
-                                <li>• <strong>Weekly/Monthly/Yearly Reports:</strong> Switch between views to see aggregated summaries</li>
-                                <li>• <strong>CSV Export:</strong> Download FIRS-compliant reports for filing and audits</li>
-                                <li>• <strong>Gross Profit Margin:</strong> Track your business efficiency over time</li>
-                            </ul>
+                        <div className="space-y-6">
+                            <input
+                                type="password" maxLength="4" value={pin}
+                                onChange={e => setPin(e.target.value)}
+                                className="w-full text-center text-5xl tracking-[1rem] p-6 bg-gray-50 border-2 border-gray-100 rounded-2xl focus:border-[#217346] outline-none font-mono transition-all"
+                                placeholder="••••"
+                            />
+                            <button
+                                onClick={() => hasAccount ? onLogin(pin) : onSetup(pin)}
+                                className="w-full py-5 bg-[#217346] text-white rounded-2xl font-black text-xl hover:bg-[#1b5e3a] transform active:scale-95 transition-all shadow-xl shadow-green-900/20"
+                            >
+                                {hasAccount ? 'UNLOCK ACCOUNT' : 'INITIALIZE SYSTEM'}
+                            </button>
                         </div>
                     </div>
                 </div>
             );
         };
 
-        ReactDOM.render(<TaxComplianceTracker />, document.getElementById('root'));
+        // --- MAIN APP ---
+        const App = () => {
+            const [session, setSession] = useState('auth');
+            const [activeTab, setActiveTab] = useState('inventory');
+            const [data, setData] = useState(DataService.load());
+
+            useEffect(() => {
+                if (session === 'app') DataService.save(data);
+            }, [data, session]);
+
+            const stats = useMemo(() => {
+                const revenue = data.sales.reduce((sum, s) => sum + (Number(s.price) * Number(s.qty) || 0), 0);
+                const cogs = data.sales.reduce((sum, s) => {
+                    const prod = data.products.find(p => p.id === s.productId);
+                    return sum + ((Number(prod?.cost) || Number(s.cost) || 0) * Number(s.qty));
+                }, 0);
+                const expenses = data.expenses.reduce((sum, e) => sum + (Number(e.amount) || 0), 0);
+                const netProfit = revenue - cogs - expenses;
+                return { revenue, cogs, expenses, netProfit, lowStock: data.products.filter(p => Number(p.stock) < 10).length };
+            }, [data]);
+
+            const updateRow = (sheet, id, field, value) => {
+                setData(prev => ({
+                    ...prev,
+                    [sheet]: prev[sheet].map(row => row.id === id ? { ...row, [field]: value } : row)
+                }));
+            };
+
+            const addRow = (sheet) => {
+                const newRow = sheet === 'products' ? { id: Date.now(), name: '', stock: 0, cost: 0, price: 0 } :
+                    sheet === 'sales' ? { id: Date.now(), productId: '', date: new Date().toISOString().split('T')[0], qty: 1, price: 0 } :
+                        { id: Date.now(), date: new Date().toISOString().split('T')[0], description: '', category: 'General', amount: 0 };
+                setData(prev => ({ ...prev, [sheet]: [...prev[sheet], newRow] }));
+            };
+
+            const deleteRow = (sheet, id) => {
+                if (confirm("Delete this row?")) {
+                    setData(prev => ({ ...prev, [sheet]: prev[sheet].filter(r => r.id !== id) }));
+                }
+            };
+
+            if (session === 'auth') return <AuthScreen onLogin={(p) => p === data.business.pin ? setSession('app') : alert("Invalid PIN")} onSetup={(p) => { setData(d => ({ ...d, business: { ...d.business, pin: p } })); setSession('app'); }} hasAccount={!!data.business.pin} />;
+
+            return (
+                <div className="flex flex-col h-full">
+                    {/* Dashboard Header */}
+                    <div className="glass-header p-6 flex flex-col md:flex-row gap-6 items-center shrink-0">
+                        <div className="flex-1 w-full grid grid-cols-2 md:grid-cols-5 gap-4">
+                            <StatCard label="Total Revenue" value={stats.revenue} color="emerald" isPrice icon="💰" />
+                            <StatCard label="Net Profit" value={stats.netProfit} color="blue" isPrice icon="📈" />
+                            <StatCard label="COGS" value={stats.cogs} color="amber" isPrice icon="📦" />
+                            <StatCard label="Expenses" value={stats.expenses} color="rose" isPrice icon="💸" />
+                            <StatCard label="Low Stock" value={stats.lowStock} color="orange" icon="⚠️" />
+                        </div>
+                        <div className="flex gap-3">
+                            <button onClick={() => setSession('auth')} className="p-3 bg-gray-100 rounded-xl hover:bg-gray-200 transition-colors" title="Lock System">🔒</button>
+                            <button onClick={() => exportToExcel(data, stats)} className="px-6 py-3 bg-[#217346] text-white font-bold rounded-xl shadow-lg hover:bg-[#1b5e3a] transition-all">Export Excel</button>
+                        </div>
+                    </div>
+
+                    {/* Main Content: Stacked Master Sheets */}
+                    <div className="flex-1 overflow-y-auto bg-gray-50 pb-20">
+                        {/* Analytics Summary Dashboard */}
+                        <div className="p-8 max-w-7xl mx-auto">
+                            <div className="flex items-center justify-between mb-8">
+                                <h2 className="text-2xl font-black text-gray-800 uppercase tracking-tight flex items-center gap-3">
+                                    <span className="w-2 h-8 bg-[#217346] rounded-full"></span>
+                                    Business Intelligence Dashboard
+                                </h2>
+                                <div className="text-xs font-bold text-gray-400">REAL-TIME DATA PROCESSING ACTIVE</div>
+                            </div>
+
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
+                                <AnalyticsCard label="Operating Revenue" value={stats.revenue} sub="Total Gross Sales" color="emerald" icon="💰" />
+                                <AnalyticsCard label="Direct COGS" value={stats.cogs} sub="Cost of Inventory Sold" color="amber" icon="📦" />
+                                <AnalyticsCard label="Operating Expenses" value={stats.expenses} sub="Logistics, Wage, Tax" color="rose" icon="💸" />
+                                <AnalyticsCard label="Estimated Net Profit" value={stats.netProfit} sub="After All Deductions" color="blue" icon="📊" />
+                            </div>
+
+                            {/* Inventory Sheet Section */}
+                            <section className="bg-white rounded-[2rem] shadow-xl border border-gray-100 overflow-hidden mb-12">
+                                <div className="p-6 bg-gray-50 border-b flex justify-between items-center">
+                                    <h3 className="font-black text-gray-700 flex items-center gap-2">
+                                        <span className="p-2 bg-emerald-100 text-emerald-700 rounded-lg text-xs">01</span>
+                                        MASTER INVENTORY SHEET
+                                    </h3>
+                                    <button onClick={() => addRow('products')} className="px-4 py-2 bg-emerald-600 text-white text-xs font-bold rounded-lg hover:bg-emerald-700">+ NEW ITEM</button>
+                                </div>
+                                <div className="spreadsheet-container border-none">
+                                    <table className="min-w-full">
+                                        <thead>
+                                            <tr>
+                                                <th className="w-10"></th>
+                                                <th className="text-left">Product / Item Name</th>
+                                                <th className="w-32 text-right">Physical Stock</th>
+                                                <th className="w-40 text-right">Cost (₦)</th>
+                                                <th className="w-40 text-right">Retail (₦)</th>
+                                                <th className="w-40 text-right">Total Asset Value</th>
+                                                <th className="w-16"></th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {data.products.map((p, idx) => (
+                                                <tr key={p.id} className="hover:bg-emerald-50/30 group">
+                                                    <td className="row-index">{idx + 1}</td>
+                                                    <td><input value={p.name} onChange={e => updateRow('products', p.id, 'name', e.target.value)} placeholder="Item Description..." /></td>
+                                                    <td><input type="number" className="text-right" value={p.stock} onChange={e => updateRow('products', p.id, 'stock', e.target.value)} /></td>
+                                                    <td><input type="number" className="text-right" value={p.cost} onChange={e => updateRow('products', p.id, 'cost', e.target.value)} /></td>
+                                                    <td><input type="number" className="text-right" value={p.price} onChange={e => updateRow('products', p.id, 'price', e.target.value)} /></td>
+                                                    <td className="p-2 text-right font-bold text-gray-400">₦{(p.stock * p.price).toLocaleString()}</td>
+                                                    <td className="text-center opacity-0 group-hover:opacity-100"><button onClick={() => deleteRow('products', p.id)} className="text-red-400 font-bold">×</button></td>
+                                                </tr>
+                                            ))}
+                                            {data.products.length === 0 && <tr><td colSpan="7" className="p-8 text-center text-gray-300 italic">Inventory is empty. Add items above to start tracking.</td></tr>}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </section>
+
+                            {/* Sales Sheet Section */}
+                            <section className="bg-white rounded-[2rem] shadow-xl border border-gray-100 overflow-hidden mb-12">
+                                <div className="p-6 bg-gray-50 border-b flex justify-between items-center">
+                                    <h3 className="font-black text-gray-700 flex items-center gap-2">
+                                        <span className="p-2 bg-blue-100 text-blue-700 rounded-lg text-xs">02</span>
+                                        DAILY SALES JOURNAL
+                                    </h3>
+                                    <button onClick={() => addRow('sales')} className="px-4 py-2 bg-blue-600 text-white text-xs font-bold rounded-lg hover:bg-blue-700">+ LOG SALE</button>
+                                </div>
+                                <div className="spreadsheet-container border-none">
+                                    <table className="min-w-full">
+                                        <thead>
+                                            <tr>
+                                                <th className="w-10"></th>
+                                                <th className="w-48 text-left">Date</th>
+                                                <th className="text-left">Sold Item</th>
+                                                <th className="w-32 text-right">Sold Qty</th>
+                                                <th className="w-40 text-right">Sold Price (₦)</th>
+                                                <th className="w-40 text-right">Gross Total</th>
+                                                <th className="w-16"></th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {data.sales.map((s, idx) => (
+                                                <tr key={s.id} className="hover:bg-blue-50/30 group">
+                                                    <td className="row-index">{idx + 1}</td>
+                                                    <td><input type="date" value={s.date} onChange={e => updateRow('sales', s.id, 'date', e.target.value)} /></td>
+                                                    <td>
+                                                        <select value={s.productId} onChange={e => {
+                                                            const p = data.products.find(prod => prod.id == e.target.value);
+                                                            setData(prev => ({ ...prev, sales: prev.sales.map(row => row.id === s.id ? { ...row, productId: e.target.value, price: p?.price || 0 } : row) }));
+                                                        }}>
+                                                            <option value="">Select Product...</option>
+                                                            {data.products.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                                                        </select>
+                                                    </td>
+                                                    <td><input type="number" className="text-right font-bold" value={s.qty} onChange={e => updateRow('sales', s.id, 'qty', e.target.value)} /></td>
+                                                    <td><input type="number" className="text-right" value={s.price} onChange={e => updateRow('sales', s.id, 'price', e.target.value)} /></td>
+                                                    <td className="p-2 text-right font-black text-emerald-600">₦{(s.qty * s.price).toLocaleString()}</td>
+                                                    <td className="text-center opacity-0 group-hover:opacity-100"><button onClick={() => deleteRow('sales', s.id)} className="text-red-400 font-bold">×</button></td>
+                                                </tr>
+                                            ))}
+                                            {data.sales.length === 0 && <tr><td colSpan="7" className="p-8 text-center text-gray-300 italic">No sales recorded. Log transactions to see analytics.</td></tr>}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </section>
+
+                            {/* Expenses Sheet Section */}
+                            <section className="bg-white rounded-[2rem] shadow-xl border border-gray-100 overflow-hidden">
+                                <div className="p-6 bg-gray-50 border-b flex justify-between items-center">
+                                    <h3 className="font-black text-gray-700 flex items-center gap-2">
+                                        <span className="p-2 bg-rose-100 text-rose-700 rounded-lg text-xs">03</span>
+                                        BUSINESS EXPENSE LEDGER
+                                    </h3>
+                                    <button onClick={() => addRow('expenses')} className="px-4 py-2 bg-rose-600 text-white text-xs font-bold rounded-lg hover:bg-rose-700">+ LOG EXPENSE</button>
+                                </div>
+                                <div className="spreadsheet-container border-none">
+                                    <table className="min-w-full">
+                                        <thead>
+                                            <tr>
+                                                <th className="w-10"></th>
+                                                <th className="w-48 text-left">Date</th>
+                                                <th className="w-48 text-left">Category</th>
+                                                <th className="text-left">Memo / Reason</th>
+                                                <th className="w-48 text-right">Expense Amount (₦)</th>
+                                                <th className="w-16"></th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {data.expenses.map((e, idx) => (
+                                                <tr key={e.id} className="hover:bg-rose-50/30 group">
+                                                    <td className="row-index">{idx + 1}</td>
+                                                    <td><input type="date" value={e.date} onChange={e => updateRow('expenses', e.id, 'date', e.target.value)} /></td>
+                                                    <td>
+                                                        <select value={e.category} onChange={e => updateRow('expenses', e.id, 'category', e.target.value)}>
+                                                            <option>Rent & Lease</option><option>Utilities</option><option>Transport</option><option>Salaries</option><option>Taxes</option><option>Equipment</option><option>Other</option>
+                                                        </select>
+                                                    </td>
+                                                    <td><input value={e.description} onChange={e => updateRow('expenses', e.id, 'description', e.target.value)} placeholder="Expense Purpose..." /></td>
+                                                    <td><input type="number" className="text-right text-rose-600 font-bold" value={e.amount} onChange={e => updateRow('expenses', e.id, 'amount', e.target.value)} /></td>
+                                                    <td className="text-center opacity-0 group-hover:opacity-100"><button onClick={() => deleteRow('expenses', e.id)} className="text-red-400 font-bold">×</button></td>
+                                                </tr>
+                                            ))}
+                                            {data.expenses.length === 0 && <tr><td colSpan="6" className="p-8 text-center text-gray-300 italic">No expenses reported yet.</td></tr>}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </section>
+                        </div>
+                    </div>
+
+                    {/* Footer Utility */}
+                    <div className="bg-white border-t p-2 flex justify-between items-center text-[10px] uppercase font-black tracking-widest text-gray-400 shadow-inner px-6 shrink-0">
+                        <div>Nigeria Master Tax Spreadsheet &bull; RC Edition</div>
+                        <div className="flex gap-4">
+                            <span>Ready</span>
+                            <span className="text-green-500">Auto-Saving Connected</span>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        const AnalyticsCard = ({ label, value, sub, color, isPrice = true, icon }) => (
+            <div className={`bg-white p-6 rounded-[2rem] border border-gray-100 stat-card flex flex-col h-full`}>
+                <div className="flex justify-between items-start mb-4">
+                    <div className={`w-12 h-12 bg-${color}-50 text-${color}-600 rounded-2xl flex items-center justify-center text-2xl`}>{icon}</div>
+                    <div className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em]">{sub}</div>
+                </div>
+                <div className="mt-auto">
+                    <div className="text-sm font-bold text-gray-500 uppercase tracking-tight mb-1">{label}</div>
+                    <div className={`text-3xl font-black text-gray-900 font-mono`}>
+                        {isPrice ? '₦' : ''}{Number(value).toLocaleString()}
+                    </div>
+                </div>
+            </div>
+        );
+
+        const exportToExcel = (data, stats) => {
+            const wb = XLSX.utils.book_new();
+
+            // Summary
+            const summaryData = [
+                ["System Summary", "Tax Master Nigeria"],
+                ["Total Revenue", stats.revenue],
+                ["Net Profit", stats.netProfit],
+                ["Total Expenses", stats.expenses],
+                ["Generated At", new Date().toLocaleString()]
+            ];
+            XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(summaryData), "Dashboard");
+
+            // Sheets
+            XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(data.products), "Inventory");
+            XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(data.sales), "Sales");
+            XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(data.expenses), "Expenses");
+
+            XLSX.writeFile(wb, `Tax_Master_MasterSheet_${new Date().toISOString().slice(0, 10)}.xlsx`);
+        };
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
     </script>
 </body>
+
 </html>
