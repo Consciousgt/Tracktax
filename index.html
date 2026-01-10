@@ -186,14 +186,43 @@
 
             const stats = useMemo(() => {
                 const revenue = data.sales.reduce((sum, s) => sum + (Number(s.price) * Number(s.qty) || 0), 0);
+
+                // COGS: Only count cost for items actually sold
                 const cogs = data.sales.reduce((sum, s) => {
-                    const prod = data.products.find(p => p.id === s.productId);
-                    return sum + ((Number(prod?.cost) || Number(s.cost) || 0) * Number(s.qty));
+                    const prod = data.products.find(p => p.id == s.productId);
+                    const costPerUnit = Number(prod?.cost) || 0;
+                    return sum + (costPerUnit * (Number(s.qty) || 0));
                 }, 0);
+
                 const expenses = data.expenses.reduce((sum, e) => sum + (Number(e.amount) || 0), 0);
                 const netProfit = revenue - cogs - expenses;
-                return { revenue, cogs, expenses, netProfit, lowStock: data.products.filter(p => Number(p.stock) < 10).length };
+
+                // Inventory Value: Based on current stock
+                const inventoryValue = data.products.reduce((sum, p) => {
+                    const soldQty = data.sales.filter(s => s.productId == p.id).reduce((sSum, s) => sSum + (Number(s.qty) || 0), 0);
+                    const currentStock = (Number(p.stock) || 0) - soldQty;
+                    return sum + (currentStock * (Number(p.cost) || 0));
+                }, 0);
+
+                return {
+                    revenue,
+                    cogs,
+                    expenses,
+                    netProfit,
+                    inventoryValue,
+                    lowStock: data.products.filter(p => {
+                        const soldQty = data.sales.filter(s => s.productId == p.id).reduce((sSum, s) => sSum + (Number(s.qty) || 0), 0);
+                        return ((Number(p.stock) || 0) - soldQty) < 10;
+                    }).length
+                };
             }, [data]);
+
+            const getStockLevel = (productId) => {
+                const prod = data.products.find(p => p.id == productId);
+                if (!prod) return 0;
+                const soldQty = data.sales.filter(s => s.productId == productId).reduce((sum, s) => sum + (Number(s.qty) || 0), 0);
+                return (Number(prod.stock) || 0) - soldQty;
+            };
 
             const updateRow = (sheet, id, field, value) => {
                 setData(prev => ({
@@ -268,26 +297,31 @@
                                             <tr>
                                                 <th className="w-10"></th>
                                                 <th className="text-left">Product / Item Name</th>
-                                                <th className="w-32 text-right">Physical Stock</th>
-                                                <th className="w-40 text-right">Cost (₦)</th>
+                                                <th className="w-32 text-right">Initial Stock</th>
+                                                <th className="w-32 text-right">Current Stock</th>
+                                                <th className="w-40 text-right">Unit Cost (₦)</th>
                                                 <th className="w-40 text-right">Retail (₦)</th>
                                                 <th className="w-40 text-right">Total Asset Value</th>
                                                 <th className="w-16"></th>
                                             </tr>
                                         </thead>
                                         <tbody>
-                                            {data.products.map((p, idx) => (
-                                                <tr key={p.id} className="hover:bg-emerald-50/30 group">
-                                                    <td className="row-index">{idx + 1}</td>
-                                                    <td><input value={p.name} onChange={e => updateRow('products', p.id, 'name', e.target.value)} placeholder="Item Description..." /></td>
-                                                    <td><input type="number" className="text-right" value={p.stock} onChange={e => updateRow('products', p.id, 'stock', e.target.value)} /></td>
-                                                    <td><input type="number" className="text-right" value={p.cost} onChange={e => updateRow('products', p.id, 'cost', e.target.value)} /></td>
-                                                    <td><input type="number" className="text-right" value={p.price} onChange={e => updateRow('products', p.id, 'price', e.target.value)} /></td>
-                                                    <td className="p-2 text-right font-bold text-gray-400">₦{(p.stock * p.price).toLocaleString()}</td>
-                                                    <td className="text-center opacity-0 group-hover:opacity-100"><button onClick={() => deleteRow('products', p.id)} className="text-red-400 font-bold">×</button></td>
-                                                </tr>
-                                            ))}
-                                            {data.products.length === 0 && <tr><td colSpan="7" className="p-8 text-center text-gray-300 italic">Inventory is empty. Add items above to start tracking.</td></tr>}
+                                            {data.products.map((p, idx) => {
+                                                const currentStock = getStockLevel(p.id);
+                                                return (
+                                                    <tr key={p.id} className="hover:bg-emerald-50/30 group">
+                                                        <td className="row-index">{idx + 1}</td>
+                                                        <td><input value={p.name} onChange={e => updateRow('products', p.id, 'name', e.target.value)} placeholder="Item Description..." /></td>
+                                                        <td><input type="number" className="text-right" value={p.stock} onChange={e => updateRow('products', p.id, 'stock', e.target.value)} /></td>
+                                                        <td className={`text-right font-black p-2 ${currentStock < 10 ? 'text-red-600 bg-red-50' : 'text-emerald-700'}`}>{currentStock}</td>
+                                                        <td><input type="number" className="text-right" value={p.cost} onChange={e => updateRow('products', p.id, 'cost', e.target.value)} /></td>
+                                                        <td><input type="number" className="text-right" value={p.price} onChange={e => updateRow('products', p.id, 'price', e.target.value)} /></td>
+                                                        <td className="p-2 text-right font-bold text-gray-400">₦{(currentStock * p.cost).toLocaleString()}</td>
+                                                        <td className="text-center opacity-0 group-hover:opacity-100"><button onClick={() => deleteRow('products', p.id)} className="text-red-400 font-bold">×</button></td>
+                                                    </tr>
+                                                );
+                                            })}
+                                            {data.products.length === 0 && <tr><td colSpan="8" className="p-8 text-center text-gray-300 italic">Inventory is empty. Add items above to start tracking.</td></tr>}
                                         </tbody>
                                     </table>
                                 </div>
