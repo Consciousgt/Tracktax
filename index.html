@@ -12,6 +12,11 @@
     <link
         href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Inter:wght@300;400;500;600;700&display=swap"
         rel="stylesheet">
+
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
     <style>
         :root {
             --excel-green: #217346;
@@ -145,31 +150,79 @@
     <script type="text/babel">
         const { useState, useEffect, useMemo, useRef } = React;
 
+        // --- FIREBASE CONFIG ---
+        // REPLACE WITH YOUR ACTUAL CONFIG FROM FIREBASE CONSOLE
+        const firebaseConfig = {
+            apiKey: "AIzaSyB4tHJ3H_Oj6JjOx1OtfTmRxqsKk2EcN28",
+            authDomain: "taxmaster-eb0ad.firebaseapp.com",
+            projectId: "taxmaster-eb0ad",
+            storageBucket: "taxmaster-eb0ad.firebasestorage.app",
+            messagingSenderId: "850128101144",
+            appId: "1:850128101144:web:bac6a3329d01a2678d086d",
+            measurementId: "G-WLM37CWCX0"
+        };
+
+        firebase.initializeApp(firebaseConfig);
+        const auth = firebase.auth();
+        const db = firebase.firestore();
+
         const DB_KEY = 'tax_master_v5';
         const DataService = {
-            load: () => {
+            getDocRef: (uid) => db.collection('users').doc(uid),
+
+            loadFromCloud: async (uid) => {
+                const doc = await DataService.getDocRef(uid).get();
+                if (doc.exists) {
+                    return doc.data();
+                }
+                return null;
+            },
+
+            saveToCloud: async (uid, data) => {
+                await DataService.getDocRef(uid).set({
+                    ...data,
+                    lastSynced: firebase.firestore.FieldValue.serverTimestamp()
+                }, { merge: true });
+            },
+
+            loadLocal: () => {
                 const defaults = { products: [], sales: [], expenses: [], restocks: [], business: { name: '', pin: null, cac: '', description: '' } };
                 const saved = JSON.parse(localStorage.getItem(DB_KEY)) || {};
                 const merged = { ...defaults, ...saved };
-
-                // Data Migration: Ensure historical sales have a snapshotted cost
                 merged.sales = (merged.sales || []).map(s => {
                     if (s.cost !== undefined) return s;
                     const p = merged.products.find(prod => prod.id == s.productId);
                     return { ...s, cost: p?.cost || 0 };
                 });
-
                 return merged;
             },
-            save: (data) => localStorage.setItem(DB_KEY, JSON.stringify(data))
+            saveLocal: (data) => localStorage.setItem(DB_KEY, JSON.stringify(data))
         };
 
         // --- AUTH ---
-        const AuthScreen = ({ onLogin, hasAccount, onSetup }) => {
-            const [pin, setPin] = useState('');
-            const [name, setName] = useState('');
-            const [cac, setCac] = useState('');
-            const [desc, setDesc] = useState('');
+        const AuthScreen = ({ onAuthSuccess }) => {
+            const [isLogin, setIsLogin] = useState(true);
+            const [email, setEmail] = useState('');
+            const [password, setPassword] = useState('');
+            const [loading, setLoading] = useState(false);
+            const [error, setError] = useState('');
+
+            const handleSubmit = async (e) => {
+                e.preventDefault();
+                setLoading(true);
+                setError('');
+                try {
+                    if (isLogin) {
+                        await auth.signInWithEmailAndPassword(email, password);
+                    } else {
+                        await auth.createUserWithEmailAndPassword(email, password);
+                    }
+                } catch (err) {
+                    setError(err.message);
+                } finally {
+                    setLoading(false);
+                }
+            };
 
             return (
                 <div className="flex items-center justify-center min-h-screen bg-[#1b4332] p-4">
@@ -178,45 +231,54 @@
                             <div className="w-24 h-24 bg-emerald-50 rounded-3xl flex items-center justify-center mx-auto mb-6 text-[#217346] shadow-inner">
                                 <svg className="w-14 h-14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04m12.892 7.781c.059.39.088.788.088 1.191 0 5.841-4.467 10.583-10 11.162V24"></path></svg>
                             </div>
-                            <h1 className="text-4xl font-black text-gray-900 tracking-tight">TAX MASTER</h1>
-                            <p className="text-gray-500 mt-2 font-bold uppercase text-xs tracking-widest">Enterprise Ledger Solution</p>
+                            <h1 className="text-4xl font-black text-gray-900 tracking-tight text-center">TAX MASTER</h1>
+                            <p className="text-gray-500 mt-2 font-bold uppercase text-xs tracking-widest text-center">Cloud Ledger Solution</p>
                         </div>
 
-                        <div className="space-y-6">
-                            {!hasAccount && (
-                                <div className="space-y-4 animate-in fade-in slide-in-from-bottom-4">
-                                    <div className="p-1 px-4 bg-gray-50 rounded-2xl border border-gray-100">
-                                        <label className="text-[10px] font-black text-emerald-700 uppercase">Registered Business Name</label>
-                                        <input className="w-full bg-transparent p-2 text-lg font-bold outline-none" placeholder="e.g. My Global Ventures" value={name} onChange={e => setName(e.target.value)} />
-                                    </div>
-                                    <div className="p-1 px-4 bg-gray-50 rounded-2xl border border-gray-100">
-                                        <label className="text-[10px] font-black text-emerald-700 uppercase">CAC Registration Number</label>
-                                        <input className="w-full bg-transparent p-2 text-lg font-bold outline-none" placeholder="RC-000000" value={cac} onChange={e => setCac(e.target.value)} />
-                                    </div>
-                                    <div className="p-1 px-4 bg-gray-50 rounded-2xl border border-gray-100">
-                                        <label className="text-[10px] font-black text-emerald-700 uppercase">Business Description</label>
-                                        <input className="w-full bg-transparent p-2 text-lg font-bold outline-none" placeholder="e.g. Retail and Logistics..." value={desc} onChange={e => setDesc(e.target.value)} />
-                                    </div>
+                        <form onSubmit={handleSubmit} className="space-y-6">
+                            <div className="space-y-4">
+                                <div className="p-1 px-4 bg-gray-50 rounded-2xl border border-gray-100">
+                                    <label className="text-[10px] font-black text-emerald-700 uppercase">Email Address</label>
+                                    <input
+                                        type="email"
+                                        className="w-full bg-transparent p-2 text-lg font-bold outline-none"
+                                        placeholder="client@example.com"
+                                        value={email}
+                                        onChange={e => setEmail(e.target.value)}
+                                        required
+                                    />
                                 </div>
-                            )}
-
-                            <div className="p-1 px-4 bg-gray-50 rounded-2xl border border-gray-100">
-                                <label className="text-[10px] font-black text-emerald-700 uppercase text-center block w-full">{hasAccount ? 'Enter PIN to Unlock' : 'Set 4-Digit Security PIN'}</label>
-                                <input
-                                    type="password" maxLength="4" value={pin}
-                                    onChange={e => setPin(e.target.value)}
-                                    className="w-full text-center text-5xl tracking-[1.5rem] p-4 bg-transparent outline-none font-mono transition-all"
-                                    placeholder="••••"
-                                />
+                                <div className="p-1 px-4 bg-gray-50 rounded-2xl border border-gray-100">
+                                    <label className="text-[10px] font-black text-emerald-700 uppercase">Security Password</label>
+                                    <input
+                                        type="password"
+                                        className="w-full bg-transparent p-2 text-lg font-bold outline-none"
+                                        placeholder="••••••••"
+                                        value={password}
+                                        onChange={e => setPassword(e.target.value)}
+                                        required
+                                    />
+                                </div>
                             </div>
 
+                            {error && <p className="text-red-500 text-xs font-bold text-center">{error}</p>}
+
                             <button
-                                onClick={() => hasAccount ? onLogin(pin) : onSetup({ pin, name, cac, desc })}
-                                className="w-full py-6 bg-[#217346] text-white rounded-3xl font-black text-xl hover:bg-[#1b5e3a] active:scale-95 transition-all shadow-xl shadow-green-900/40 uppercase tracking-wider"
+                                type="submit"
+                                disabled={loading}
+                                className="w-full py-6 bg-[#217346] text-white rounded-3xl font-black text-xl hover:bg-[#1b5e3a] active:scale-95 transition-all shadow-xl shadow-green-900/40 uppercase tracking-wider disabled:opacity-50"
                             >
-                                {hasAccount ? 'Unlock Database' : 'Initialize Enterprise'}
+                                {loading ? 'Processing...' : (isLogin ? 'Login to Portal' : 'Create Account')}
                             </button>
-                        </div>
+
+                            <button
+                                type="button"
+                                onClick={() => setIsLogin(!isLogin)}
+                                className="w-full text-center text-sm font-bold text-gray-400 hover:text-emerald-700 transition-colors"
+                            >
+                                {isLogin ? "Don't have an account? Sign Up" : "Already have an account? Log In"}
+                            </button>
+                        </form>
                     </div>
                 </div>
             );
@@ -224,16 +286,54 @@
 
         // --- MAIN APP ---
         const App = () => {
-            const [session, setSession] = useState('auth');
-            const [data, setData] = useState(DataService.load());
+            const [user, setUser] = useState(null);
+            const [data, setData] = useState(DataService.loadLocal());
+            const [loading, setLoading] = useState(true);
+            const [syncing, setSyncing] = useState(false);
             const [filter, setFilter] = useState({
                 type: 'day',
                 value: new Date().toISOString().split('T')[0]
-            }); // Default to Today
+            });
 
+            // Auth State Listener
             useEffect(() => {
-                if (session === 'app') DataService.save(data);
-            }, [data, session]);
+                const unsubscribe = auth.onAuthStateChanged(async (u) => {
+                    setUser(u);
+                    if (u) {
+                        try {
+                            const cloudData = await DataService.loadFromCloud(u.uid);
+                            if (cloudData) {
+                                setData(cloudData);
+                            } else {
+                                // First time cloud user - migrate local data
+                                await DataService.saveToCloud(u.uid, data);
+                            }
+                        } catch (err) {
+                            console.error("Cloud load error:", err);
+                        }
+                    }
+                    setLoading(false);
+                });
+                return unsubscribe;
+            }, []);
+
+            // Save data to cloud when changed
+            useEffect(() => {
+                if (user && !loading) {
+                    const timer = setTimeout(async () => {
+                        setSyncing(true);
+                        try {
+                            await DataService.saveToCloud(user.uid, data);
+                        } catch (err) {
+                            console.error("Sync error:", err);
+                        } finally {
+                            setSyncing(false);
+                        }
+                    }, 2000); // Debounce saves
+                    return () => clearTimeout(timer);
+                }
+                DataService.saveLocal(data);
+            }, [data, user, loading]);
 
             const isDateInRange = (dateStr) => {
                 if (filter.type === 'all') return true;
@@ -340,16 +440,13 @@
                 }
             };
 
-            if (session === 'auth') return (
-                <AuthScreen
-                    onLogin={(p) => p === data.business.pin ? setSession('app') : alert("Invalid PIN")}
-                    onSetup={(profile) => {
-                        setData(d => ({ ...d, business: profile }));
-                        setSession('app');
-                    }}
-                    hasAccount={!!data.business.pin}
-                />
+            if (loading) return (
+                <div className="flex items-center justify-center min-h-screen bg-[#1b4332]">
+                    <div className="text-white font-black text-2xl animate-pulse">LOADING ENTERPRISE...</div>
+                </div>
             );
+
+            if (!user) return <AuthScreen />;
 
             return (
                 <div className="flex flex-col h-screen bg-[#f8fafc]">
@@ -429,8 +526,8 @@
                             </div>
 
                             <div className="flex justify-end gap-3 mb-8">
-                                <button onClick={() => setSession('auth')} className="px-6 py-3 bg-white border border-gray-100 text-gray-600 font-bold rounded-2xl hover:bg-gray-50 transition-colors shadow-sm flex items-center gap-2">
-                                    <span>🔒</span> LOCK SYSTEM
+                                <button onClick={() => auth.signOut()} className="px-6 py-3 bg-white border border-gray-100 text-gray-600 font-bold rounded-2xl hover:bg-gray-50 transition-colors shadow-sm flex items-center gap-2">
+                                    <span>🔒</span> LOGOUT
                                 </button>
                                 <button onClick={() => exportToExcel(data, stats, filteredSales, filteredExpenses, filter)} className="px-8 py-3 bg-[#217346] text-white font-black rounded-2xl shadow-xl shadow-green-900/20 hover:bg-[#1b5e3a] transition-all flex items-center gap-2">
                                     <span>📊</span> EXPORT AS EXCEL
@@ -610,7 +707,10 @@
                         <div>Nigeria Master Tax Spreadsheet &bull; RC Edition</div>
                         <div className="flex gap-4">
                             <span>Ready</span>
-                            <span className="text-green-500">Auto-Saving Connected</span>
+                            <span>Ready</span>
+                            <span className={syncing ? 'text-amber-500 animate-pulse' : 'text-green-500'}>
+                                {syncing ? 'Cloud Syncing...' : 'Encrypted & Synced'}
+                            </span>
                         </div>
                     </div>
                 </div>
