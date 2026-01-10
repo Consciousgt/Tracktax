@@ -213,7 +213,9 @@
             const [vSent, setVSent] = useState(false);
 
             useEffect(() => {
-                gsap.from(".auth-card", { opacity: 0, y: 30, duration: 1, ease: "expo.out" });
+                if (window.gsap) {
+                    gsap.from(".auth-card", { opacity: 0, y: 30, duration: 1, ease: "expo.out" });
+                }
             }, [isLogin, vSent]);
 
             const handleSubmit = async (e) => {
@@ -241,30 +243,55 @@
             };
 
             if (user && !user.emailVerified || vSent) {
+                const handleCheckStatus = async () => {
+                    setLoading(true);
+                    try {
+                        await auth.currentUser.reload();
+                        if (auth.currentUser.emailVerified) {
+                            window.location.reload();
+                        } else {
+                            setError("Still not verified. Please check your inbox (and spam folder)!");
+                        }
+                    } catch (err) {
+                        setError(err.message);
+                    } finally {
+                        setLoading(false);
+                    }
+                };
+
                 return (
                     <div className="flex items-center justify-center min-h-screen bg-[#064e3b] p-4 font-inter">
                         <div className="bg-white/10 backdrop-blur-2xl p-8 md:p-12 rounded-[3rem] shadow-2xl border border-white/20 w-full max-w-lg text-center auth-card">
                             <div className="w-24 h-24 bg-emerald-400/20 rounded-full flex items-center justify-center mx-auto mb-8 animate-pulse text-5xl">
                                 📧
                             </div>
-                            <h2 className="text-3xl font-black text-white mb-4">Verify Your Identity</h2>
-                            <p className="text-emerald-100/70 mb-8 font-medium">We sent a verification link to your email. Please click it to activate your enterprise vault.</p>
+                            <h2 className="text-3xl font-black text-white mb-4">Verify Your Business</h2>
+                            <p className="text-emerald-100/70 mb-4 font-medium">We sent a verification link to <b>{email || user?.email}</b>.</p>
+
+                            <div className="bg-amber-400/20 border border-amber-400/20 p-4 rounded-2xl mb-8 text-amber-200 text-xs font-bold leading-relaxed">
+                                ⚠️ IMPORTANT: If you don't see it, please check your <b>SPAM or JUNK</b> folder and mark as "Not Spam".
+                            </div>
+
                             <button
-                                onClick={() => window.location.reload()}
+                                onClick={handleCheckStatus}
+                                disabled={loading}
                                 className="w-full py-5 bg-emerald-500 text-white rounded-2xl font-black text-lg hover:bg-emerald-400 transition-all shadow-lg mb-4"
                             >
-                                I'VE VERIFIED &bull; LOG IN
+                                {loading ? 'Checking...' : "I'VE VERIFIED &bull; ENTER VAULT"}
                             </button>
+
+                            {error && <p className="text-red-300 text-xs font-bold mb-4">{error}</p>}
+
                             <button
                                 onClick={async () => {
                                     await auth.currentUser?.sendEmailVerification();
-                                    alert("Verification link resent!");
+                                    alert("New link sent! Check spam if missing.");
                                 }}
                                 className="text-emerald-300 text-sm font-bold hover:text-white transition-colors"
                             >
                                 Resend verification link
                             </button>
-                            <button onClick={() => auth.signOut()} className="block mx-auto mt-6 text-emerald-200/50 text-xs font-bold uppercase tracking-widest hover:text-white">Cancel & Back</button>
+                            <button onClick={() => auth.signOut()} className="block mx-auto mt-6 text-emerald-200/50 text-xs font-bold uppercase tracking-widest hover:text-white">Cancel & Logout</button>
                         </div>
                     </div>
                 );
@@ -529,9 +556,11 @@
 
             // Page Entrance Animations
             useEffect(() => {
-                gsap.from(".fade-in-up", {
-                    opacity: 0, y: 20, stagger: 0.1, duration: 0.8, ease: "power2.out"
-                });
+                if (window.gsap) {
+                    gsap.from(".fade-in-up", {
+                        opacity: 0, y: 20, stagger: 0.1, duration: 0.8, ease: "power2.out"
+                    });
+                }
             }, []);
 
             return (
