@@ -265,7 +265,7 @@
                             <AnalyticsCard label="Net Profit" value={stats.netProfit} sub="Take Home" color="blue" isPrice icon="📈" />
                             <AnalyticsCard label="COGS" value={stats.cogs} sub="Stock Cost" color="amber" isPrice icon="📦" />
                             <AnalyticsCard label="Expenses" value={stats.expenses} sub="Overhead" color="rose" isPrice icon="💸" />
-                            <AnalyticsCard label="Low Stock" value={stats.lowStock} sub="Alerts" color="orange" isPrice={false} icon="⚠️" />
+                            <AnalyticsCard label="Low Stock" value={stats.lowStockCount} sub="Alerts" color="orange" isPrice={false} icon="⚠️" />
                         </div>
                         <div className="flex gap-3">
                             <button onClick={() => setSession('auth')} className="p-3 bg-gray-100 rounded-xl hover:bg-gray-200 transition-colors" title="Lock System">🔒</button>
@@ -425,18 +425,18 @@
                                             </tr>
                                         </thead>
                                         <tbody>
-                                            {(data.expenses || []).map((e, idx) => (
-                                                <tr key={e.id} className="hover:bg-rose-50/30 group">
+                                            {(data.expenses || []).map((exp, idx) => (
+                                                <tr key={exp.id} className="hover:bg-rose-50/30 group">
                                                     <td className="row-index">{idx + 1}</td>
-                                                    <td><input type="date" value={e.date} onChange={e => updateRow('expenses', e.id, 'date', e.target.value)} /></td>
+                                                    <td><input type="date" value={exp.date} onChange={e => updateRow('expenses', exp.id, 'date', e.target.value)} /></td>
                                                     <td>
-                                                        <select value={e.category} onChange={e => updateRow('expenses', e.id, 'category', e.target.value)}>
+                                                        <select value={exp.category} onChange={e => updateRow('expenses', exp.id, 'category', e.target.value)}>
                                                             <option>Rent & Lease</option><option>Utilities</option><option>Transport</option><option>Salaries</option><option>Taxes</option><option>Equipment</option><option>Other</option>
                                                         </select>
                                                     </td>
-                                                    <td><input value={e.description} onChange={e => updateRow('expenses', e.id, 'description', e.target.value)} placeholder="Expense Purpose..." /></td>
-                                                    <td><input type="number" className="text-right text-rose-600 font-bold" value={e.amount} onChange={e => updateRow('expenses', e.id, 'amount', e.target.value)} /></td>
-                                                    <td className="text-center opacity-0 group-hover:opacity-100"><button onClick={() => deleteRow('expenses', e.id)} className="text-red-400 font-bold">×</button></td>
+                                                    <td><input value={exp.description} onChange={e => updateRow('expenses', exp.id, 'description', e.target.value)} placeholder="Expense Purpose..." /></td>
+                                                    <td><input type="number" className="text-right text-rose-600 font-bold" value={exp.amount} onChange={e => updateRow('expenses', exp.id, 'amount', e.target.value)} /></td>
+                                                    <td className="text-center opacity-0 group-hover:opacity-100"><button onClick={() => deleteRow('expenses', exp.id)} className="text-red-400 font-bold">×</button></td>
                                                 </tr>
                                             ))}
                                         </tbody>
