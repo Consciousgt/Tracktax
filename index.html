@@ -439,6 +439,14 @@
                 DataService.saveLocal(data);
             }, [data, user, loading]);
 
+            useEffect(() => {
+                if (window.gsap && user && user.emailVerified && !loading) {
+                    gsap.from(".fade-in-up", {
+                        opacity: 0, y: 20, stagger: 0.1, duration: 0.8, ease: "power2.out"
+                    });
+                }
+            }, [user, loading]);
+
             const isDateInRange = (dateStr) => {
                 if (filter.type === 'all') return true;
                 if (!dateStr) return false;
@@ -553,15 +561,6 @@
             );
 
             if (!user || (user && !user.emailVerified)) return <AuthScreen user={user} />;
-
-            // Page Entrance Animations
-            useEffect(() => {
-                if (window.gsap) {
-                    gsap.from(".fade-in-up", {
-                        opacity: 0, y: 20, stagger: 0.1, duration: 0.8, ease: "power2.out"
-                    });
-                }
-            }, []);
 
             return (
                 <div className="flex flex-col h-screen bg-[#f8fafc]">
