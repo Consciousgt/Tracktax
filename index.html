@@ -204,6 +204,9 @@
             const [isLogin, setIsLogin] = useState(true);
             const [email, setEmail] = useState('');
             const [password, setPassword] = useState('');
+            const [name, setName] = useState('');
+            const [cac, setCac] = useState('');
+            const [desc, setDesc] = useState('');
             const [loading, setLoading] = useState(false);
             const [error, setError] = useState('');
 
@@ -215,7 +218,13 @@
                     if (isLogin) {
                         await auth.signInWithEmailAndPassword(email, password);
                     } else {
-                        await auth.createUserWithEmailAndPassword(email, password);
+                        const userCredential = await auth.createUserWithEmailAndPassword(email, password);
+                        // Save initial business profile for new users immediately
+                        const initialData = {
+                            business: { name: name || 'MY ENTERPRISE', cac: cac || '', description: desc || '', pin: '1234' },
+                            products: [], sales: [], expenses: [], restocks: []
+                        };
+                        await DataService.saveToCloud(userCredential.user.uid, initialData);
                     }
                 } catch (err) {
                     setError(err.message);
@@ -259,6 +268,30 @@
                                         required
                                     />
                                 </div>
+
+                                {!isLogin && (
+                                    <div className="pt-4 border-t border-gray-100 space-y-4 animate-in fade-in slide-in-from-top-4">
+                                        <div className="p-1 px-4 bg-emerald-50/30 rounded-2xl border border-emerald-100">
+                                            <label className="text-[10px] font-black text-emerald-700 uppercase">Business Name</label>
+                                            <input
+                                                className="w-full bg-transparent p-1 text-base font-bold outline-none"
+                                                placeholder="e.g. My Global Ventures"
+                                                value={name}
+                                                onChange={e => setName(e.target.value)}
+                                                required
+                                            />
+                                        </div>
+                                        <div className="p-1 px-4 bg-emerald-50/30 rounded-2xl border border-emerald-100">
+                                            <label className="text-[10px] font-black text-emerald-700 uppercase">CAC Number (Optional)</label>
+                                            <input
+                                                className="w-full bg-transparent p-1 text-base font-bold outline-none"
+                                                placeholder="RC-000000"
+                                                value={cac}
+                                                onChange={e => setCac(e.target.value)}
+                                            />
+                                        </div>
+                                    </div>
+                                )}
                             </div>
 
                             {error && <p className="text-red-500 text-xs font-bold text-center">{error}</p>}
@@ -268,7 +301,7 @@
                                 disabled={loading}
                                 className="w-full py-6 bg-[#217346] text-white rounded-3xl font-black text-xl hover:bg-[#1b5e3a] active:scale-95 transition-all shadow-xl shadow-green-900/40 uppercase tracking-wider disabled:opacity-50"
                             >
-                                {loading ? 'Processing...' : (isLogin ? 'Login to Portal' : 'Create Account')}
+                                {loading ? 'Initializing Enterprise...' : (isLogin ? 'Login to Portal' : 'Create Enterprise Account')}
                             </button>
 
                             <button
@@ -298,20 +331,26 @@
             // Auth State Listener
             useEffect(() => {
                 const unsubscribe = auth.onAuthStateChanged(async (u) => {
-                    setUser(u);
                     if (u) {
                         try {
                             const cloudData = await DataService.loadFromCloud(u.uid);
                             if (cloudData) {
                                 setData(cloudData);
                             } else {
-                                // First time cloud user - migrate local data
-                                await DataService.saveToCloud(u.uid, data);
+                                // Default state for brand new users
+                                setData({
+                                    business: { name: 'NEW ENTERPRISE', cac: '', description: '', pin: '0000' },
+                                    products: [], sales: [], expenses: [], restocks: []
+                                });
                             }
                         } catch (err) {
                             console.error("Cloud load error:", err);
                         }
+                    } else {
+                        // Clear state on logout
+                        setData(DataService.loadLocal());
                     }
+                    setUser(u);
                     setLoading(false);
                 });
                 return unsubscribe;
