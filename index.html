@@ -21,6 +21,15 @@
         body {
             font-family: 'Inter', sans-serif;
             background: #f3f4f6;
+            background-image: url('C:/Users/HP/.gemini/antigravity/brain/7972f3a2-af38-4a70-95fd-6309fc0a14ff/enterprise_finance_bg_1768057753904.png');
+            background-size: cover;
+            background-attachment: fixed;
+            background-blend-mode: overlay;
+        }
+
+        .main-content {
+            background: rgba(248, 250, 252, 0.9);
+            backdrop-filter: blur(4px);
         }
 
         .spreadsheet-container {
@@ -141,7 +150,16 @@
             load: () => {
                 const defaults = { products: [], sales: [], expenses: [], restocks: [], business: { name: '', pin: null, cac: '', description: '' } };
                 const saved = JSON.parse(localStorage.getItem(DB_KEY)) || {};
-                return { ...defaults, ...saved };
+                const merged = { ...defaults, ...saved };
+
+                // Data Migration: Ensure historical sales have a snapshotted cost
+                merged.sales = (merged.sales || []).map(s => {
+                    if (s.cost !== undefined) return s;
+                    const p = merged.products.find(prod => prod.id == s.productId);
+                    return { ...s, cost: p?.cost || 0 };
+                });
+
+                return merged;
             },
             save: (data) => localStorage.setItem(DB_KEY, JSON.stringify(data))
         };
@@ -208,7 +226,10 @@
         const App = () => {
             const [session, setSession] = useState('auth');
             const [data, setData] = useState(DataService.load());
-            const [filter, setFilter] = useState({ type: 'all', value: '' }); // type: all, day, week, month, year
+            const [filter, setFilter] = useState({
+                type: 'day',
+                value: new Date().toISOString().split('T')[0]
+            }); // Default to Today
 
             useEffect(() => {
                 if (session === 'app') DataService.save(data);
@@ -216,15 +237,17 @@
 
             const isDateInRange = (dateStr) => {
                 if (filter.type === 'all') return true;
+                if (!dateStr) return false;
+
+                if (filter.type === 'day') {
+                    return dateStr === filter.value;
+                }
+
                 const date = new Date(dateStr);
                 const now = new Date();
 
-                if (filter.type === 'day') {
-                    const target = filter.value || now.toISOString().split('T')[0];
-                    return dateStr === target;
-                }
                 if (filter.type === 'month') {
-                    const target = filter.value || now.toISOString().slice(0, 7); // YYYY-MM
+                    const target = filter.value || now.toISOString().slice(0, 7);
                     return dateStr.startsWith(target);
                 }
                 if (filter.type === 'year') {
@@ -232,12 +255,18 @@
                     return dateStr.startsWith(target);
                 }
                 if (filter.type === 'week') {
-                    // Simple week check: within last 7 days from selected date or now
                     const targetDate = filter.value ? new Date(filter.value) : now;
                     const diff = (targetDate - date) / (1000 * 60 * 60 * 24);
                     return diff >= 0 && diff < 7;
                 }
                 return true;
+            };
+
+            const adjustDate = (days) => {
+                if (filter.type !== 'day') return;
+                const date = new Date(filter.value);
+                date.setDate(date.getDate() + days);
+                setFilter(f => ({ ...f, value: date.toISOString().split('T')[0] }));
             };
 
             const filteredSales = useMemo(() => data.sales.filter(s => isDateInRange(s.date)), [data.sales, filter]);
@@ -246,8 +275,8 @@
             const stats = useMemo(() => {
                 const revenue = filteredSales.reduce((sum, s) => sum + (Number(s.price) * Number(s.qty) || 0), 0);
                 const cogs = filteredSales.reduce((sum, s) => {
-                    const prod = data.products.find(p => p.id == s.productId);
-                    return sum + ((Number(prod?.cost) || 0) * (Number(s.qty) || 0));
+                    // Use snapshotted cost for historical accuracy
+                    return sum + ((Number(s.cost) || 0) * (Number(s.qty) || 0));
                 }, 0);
 
                 const expenses = filteredExpenses.reduce((sum, e) => sum + (Number(e.amount) || 0), 0);
@@ -300,7 +329,7 @@
 
             const addRow = (sheet) => {
                 const newRow = sheet === 'products' ? { id: Date.now(), name: '', stock: 0, cost: 0, price: 0 } :
-                    sheet === 'sales' ? { id: Date.now(), productId: '', date: new Date().toISOString().split('T')[0], qty: 1, price: 0 } :
+                    sheet === 'sales' ? { id: Date.now(), productId: '', date: new Date().toISOString().split('T')[0], qty: 1, price: 0, cost: 0 } :
                         { id: Date.now(), date: new Date().toISOString().split('T')[0], description: '', category: 'General', amount: 0 };
                 setData(prev => ({ ...prev, [sheet]: [...(prev[sheet] || []), newRow] }));
             };
@@ -325,25 +354,36 @@
             return (
                 <div className="flex flex-col h-screen bg-[#f8fafc]">
                     {/* Enterprise Header */}
-                    <div className="bg-white border-b border-gray-100 p-8 flex flex-col items-center text-center shadow-sm">
-                        <div className="mb-4">
-                            <h1 className="text-5xl font-black text-gray-900 uppercase tracking-tighter leading-none mb-2">
-                                {data.business.name || 'Enterprise System'}
-                            </h1>
-                            <div className="flex items-center justify-center gap-4 text-xs font-black text-emerald-700 tracking-[0.2em]">
-                                <span className="px-3 py-1 bg-emerald-50 rounded-full border border-emerald-100">
-                                    CAC: {data.business.cac || 'N/A'}
-                                </span>
-                                <span className="w-1 h-1 bg-gray-300 rounded-full"></span>
-                                <span className="text-gray-400 font-bold normal-case">
-                                    {data.business.description || 'Master Financial Records'}
-                                </span>
+                    <div className="bg-transparent border-b border-gray-100/50 p-8 flex flex-col items-center text-center">
+                        <div className="mb-4 space-y-2 w-full max-w-2xl">
+                            <input
+                                value={data.business.name}
+                                onChange={e => setData(d => ({ ...d, business: { ...d.business, name: e.target.value } }))}
+                                className="text-5xl font-black text-gray-900 uppercase tracking-tighter leading-none mb-2 text-center bg-transparent hover:bg-white/50 rounded-xl transition-all outline-none"
+                                placeholder="ENTERPRISE NAME"
+                            />
+                            <div className="flex flex-col items-center gap-2">
+                                <div className="flex items-center justify-center gap-2">
+                                    <span className="text-[10px] font-black text-emerald-700 uppercase tracking-widest px-3 py-1 bg-emerald-50/80 rounded-full border border-emerald-100">CAC RECORD:</span>
+                                    <input
+                                        value={data.business.cac}
+                                        onChange={e => setData(d => ({ ...d, business: { ...d.business, cac: e.target.value } }))}
+                                        className="text-xs font-black text-emerald-800 bg-transparent hover:bg-white/50 rounded-lg px-2 py-1 outline-none w-32 border-b border-dotted border-emerald-300"
+                                        placeholder="RC-XXXXXX"
+                                    />
+                                </div>
+                                <input
+                                    value={data.business.description}
+                                    onChange={e => setData(d => ({ ...d, business: { ...d.business, description: e.target.value } }))}
+                                    className="text-gray-400 font-bold text-center bg-transparent hover:bg-white/50 rounded-lg px-4 py-1 outline-none w-full max-w-md italic text-sm"
+                                    placeholder="Add a short business description..."
+                                />
                             </div>
                         </div>
 
                         {/* Period Selection Controls */}
-                        <div className="flex flex-wrap items-center justify-center gap-4 mt-4 p-2 bg-gray-50 rounded-3xl border border-gray-100">
-                            <div className="flex gap-1 p-1 bg-white rounded-2xl shadow-sm">
+                        <div className="flex flex-wrap items-center justify-center gap-4 mt-6 p-2 bg-white/60 backdrop-blur-md rounded-3xl border border-white/40 shadow-xl shadow-gray-200/50">
+                            <div className="flex gap-1 p-1 bg-white/80 rounded-2xl">
                                 {['all', 'day', 'week', 'month', 'year'].map(type => (
                                     <button
                                         key={type}
@@ -357,6 +397,9 @@
 
                             {filter.type !== 'all' && (
                                 <div className="flex items-center gap-2 animate-in zoom-in-95">
+                                    {filter.type === 'day' && (
+                                        <button onClick={() => adjustDate(-1)} className="p-2 hover:bg-gray-100 rounded-lg text-gray-400 font-black">←</button>
+                                    )}
                                     <span className="text-[10px] font-black text-gray-400 uppercase">Select {filter.type}:</span>
                                     <input
                                         type={filter.type === 'month' ? 'month' : filter.type === 'year' ? 'number' : 'date'}
@@ -366,12 +409,15 @@
                                         onChange={e => setFilter(f => ({ ...f, value: e.target.value }))}
                                         className="bg-white border border-gray-100 px-4 py-2 rounded-xl text-xs font-bold outline-none focus:ring-2 ring-emerald-500/20"
                                     />
+                                    {filter.type === 'day' && (
+                                        <button onClick={() => adjustDate(1)} className="p-2 hover:bg-gray-100 rounded-lg text-gray-400 font-black">→</button>
+                                    )}
                                 </div>
                             )}
                         </div>
                     </div>
 
-                    <div className="flex-1 overflow-y-auto">
+                    <div className="flex-1 overflow-y-auto main-content">
                         <div className="p-8 max-w-[1600px] mx-auto">
                             {/* Dashboard Stats */}
                             <div className="grid grid-cols-2 md:grid-cols-5 gap-6 mb-12">
@@ -475,8 +521,9 @@
                                                 <th className="w-10"></th>
                                                 <th className="w-48 text-left">Date</th>
                                                 <th className="text-left">Sold Item</th>
-                                                <th className="w-32 text-right">Sold Qty</th>
-                                                <th className="w-40 text-right">Sold Price (₦)</th>
+                                                <th className="w-24 text-right">Qty</th>
+                                                <th className="w-32 text-right">Unit Cost (₦)</th>
+                                                <th className="w-32 text-right">Sold Price (₦)</th>
                                                 <th className="w-40 text-right">Gross Total</th>
                                                 <th className="w-16"></th>
                                             </tr>
@@ -491,7 +538,12 @@
                                                             const p = data.products.find(prod => prod.id == e.target.value);
                                                             setData(prev => ({
                                                                 ...prev,
-                                                                sales: (prev.sales || []).map(row => row.id === s.id ? { ...row, productId: e.target.value, price: p?.price || 0 } : row)
+                                                                sales: (prev.sales || []).map(row => row.id === s.id ? {
+                                                                    ...row,
+                                                                    productId: e.target.value,
+                                                                    price: p?.price || 0,
+                                                                    cost: p?.cost || 0
+                                                                } : row)
                                                             }));
                                                         }}>
                                                             <option value="">Select Product...</option>
@@ -499,8 +551,9 @@
                                                         </select>
                                                     </td>
                                                     <td><input type="number" className="text-right font-bold" value={s.qty} onChange={e => updateRow('sales', s.id, 'qty', e.target.value)} /></td>
-                                                    <td><input type="number" className="text-right" value={s.price} onChange={e => updateRow('sales', s.id, 'price', e.target.value)} /></td>
-                                                    <td className="p-2 text-right font-black text-emerald-600">₦{(s.qty * s.price).toLocaleString()}</td>
+                                                    <td><input type="number" className="text-right text-gray-400" value={s.cost} onChange={e => updateRow('sales', s.id, 'cost', e.target.value)} /></td>
+                                                    <td><input type="number" className="text-right font-bold text-emerald-700" value={s.price} onChange={e => updateRow('sales', s.id, 'price', e.target.value)} /></td>
+                                                    <td className="p-2 text-right font-black text-emerald-600 bg-emerald-50/30">₦{(s.qty * s.price).toLocaleString()}</td>
                                                     <td className="text-center opacity-0 group-hover:opacity-100"><button onClick={() => deleteRow('sales', s.id)} className="text-red-400 font-bold">×</button></td>
                                                 </tr>
                                             ))}
@@ -602,7 +655,20 @@
             XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(data.products || []), "Master Inventory");
 
             // 3. Filtered Sales Sheet
-            XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(sales || []), `Sales (${filter.type})`);
+            const formattedSales = (sales || []).map(s => {
+                const p = data.products.find(prod => prod.id == s.productId);
+                return {
+                    "Date": s.date,
+                    "Product": p?.name || "Unknown",
+                    "Qty": s.qty,
+                    "Unit Cost (Snapshot)": s.cost,
+                    "Unit Price": s.price,
+                    "Total Revenue": s.qty * s.price,
+                    "Total COGS": s.qty * s.cost,
+                    "Profit": (s.qty * s.price) - (s.qty * s.cost)
+                };
+            });
+            XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(formattedSales), `Sales (${filter.type})`);
 
             // 4. Filtered Expenses Sheet
             XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(expenses || []), `Expenses (${filter.type})`);
