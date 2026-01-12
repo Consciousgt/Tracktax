@@ -717,207 +717,204 @@
                     <div className="flex-1 overflow-y-auto main-content">
                         <div className="p-8 max-w-[1600px] mx-auto">
                             {/* Dashboard Stats */}
-                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 md:gap-6 mb-8 md:mb-12">
-                                <AnalyticsCard label="Revenue" value={stats.revenue} sub={filter.type === 'all' ? 'Cumulative' : `${filter.type} View`} color="emerald" isPrice icon="💰" />
-                                <AnalyticsCard label="Net Profit" value={stats.netProfit} sub="Take Home" color="blue" isPrice icon="📈" />
-                                <AnalyticsCard label="COGS" value={stats.cogs} sub="Direct Cost" color="amber" isPrice icon="📦" />
-                                <AnalyticsCard label="Expenses" value={stats.expenses} sub="Overhead" color="rose" isPrice icon="💸" />
+                            <AnalyticsCard label="Revenue" value={stats.revenue} sub={filter.type === 'all' ? 'Cumulative' : `${filter.type} View`} color="emerald" isPrice icon="💰" />
+                            <AnalyticsCard label="Net Profit" value={stats.netProfit} sub="Take Home" color="blue" isPrice icon="📈" />
+                            <AnalyticsCard label="COGS" value={stats.cogs} sub="Direct Cost" color="yellow" isPrice icon="📦" />
+                            <AnalyticsCard label="Expenses" value={stats.expenses} sub="Overhead" color="red" isPrice icon="💸" />
+                        </div>
+
+                        {stats.lowStockCount > 0 && (
+                            <div className="mb-12 animate-bounce">
+                                <AnalyticsCard label="Low Stock Items" value={stats.lowStockCount} sub="Immediate Attention Required" color="orange" isPrice={false} icon="⚠️" />
                             </div>
+                        )}
 
-                            {stats.lowStockCount > 0 && (
-                                <div className="mb-12 animate-bounce">
-                                    <AnalyticsCard label="Low Stock Items" value={stats.lowStockCount} sub="Immediate Attention Required" color="orange" isPrice={false} icon="⚠️" />
-                                </div>
-                            )}
+                        <div className="flex justify-end gap-3 mb-8">
+                            <button onClick={() => auth.signOut()} className="px-6 py-3 bg-white border border-gray-100 text-gray-600 font-bold rounded-2xl hover:bg-gray-50 transition-colors shadow-sm flex items-center gap-2">
+                                <span>🔒</span> LOGOUT
+                            </button>
+                            <button onClick={() => exportToExcel(data, stats, filteredSales, filteredExpenses, filter)} className="px-8 py-3 bg-[#217346] text-white font-black rounded-2xl shadow-xl shadow-green-900/20 hover:bg-[#1b5e3a] transition-all flex items-center gap-2">
+                                <span>📊</span> EXPORT AS EXCEL
+                            </button>
+                        </div>
 
-                            <div className="flex justify-end gap-3 mb-8">
-                                <button onClick={() => auth.signOut()} className="px-6 py-3 bg-white border border-gray-100 text-gray-600 font-bold rounded-2xl hover:bg-gray-50 transition-colors shadow-sm flex items-center gap-2">
-                                    <span>🔒</span> LOGOUT
-                                </button>
-                                <button onClick={() => exportToExcel(data, stats, filteredSales, filteredExpenses, filter)} className="px-8 py-3 bg-[#217346] text-white font-black rounded-2xl shadow-xl shadow-green-900/20 hover:bg-[#1b5e3a] transition-all flex items-center gap-2">
-                                    <span>📊</span> EXPORT AS EXCEL
-                                </button>
+                        {/* Inventory Sheet Section */}
+                        <section className="bg-white rounded-[2rem] shadow-xl border border-gray-100 overflow-hidden mb-12">
+                            <div className="p-6 bg-gray-50 border-b flex justify-between items-center">
+                                <h3 className="font-black text-gray-700 flex items-center gap-2">
+                                    <span className="p-2 bg-emerald-100 text-emerald-700 rounded-lg text-xs">01</span>
+                                    MASTER INVENTORY SHEET
+                                </h3>
+                                <button onClick={() => addRow('products')} className="px-4 py-2 bg-emerald-600 text-white text-xs font-bold rounded-lg hover:bg-emerald-700 whitespace-nowrap">+ NEW ITEM</button>
                             </div>
-
-                            {/* Inventory Sheet Section */}
-                            <section className="bg-white rounded-[2rem] shadow-xl border border-gray-100 overflow-hidden mb-12">
-                                <div className="p-6 bg-gray-50 border-b flex justify-between items-center">
-                                    <h3 className="font-black text-gray-700 flex items-center gap-2">
-                                        <span className="p-2 bg-emerald-100 text-emerald-700 rounded-lg text-xs">01</span>
-                                        MASTER INVENTORY SHEET
-                                    </h3>
-                                    <button onClick={() => addRow('products')} className="px-4 py-2 bg-emerald-600 text-white text-xs font-bold rounded-lg hover:bg-emerald-700 whitespace-nowrap">+ NEW ITEM</button>
-                                </div>
-                                <div className="spreadsheet-container border-none overflow-x-auto">
-                                    <table className="min-w-[1000px] w-full">
-                                        <thead>
-                                            <tr>
-                                                <th className="w-10"></th>
-                                                <th className="text-left font-black">Item Name</th>
-                                                <th className="w-32 text-center bg-emerald-50 text-emerald-800 font-black">Restock (+)</th>
-                                                <th className="w-24 text-right">In-Stock</th>
-                                                <th className="w-24 text-right">Sold</th>
-                                                <th className="w-28 text-right font-black">Cost (₦)</th>
-                                                <th className="w-28 text-right font-black">Sell (₦)</th>
-                                                <th className="w-32 text-right">Current</th>
-                                                <th className="w-40 text-right font-black">Valuation</th>
-                                                <th className="w-16"></th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            {(data.products || []).map((p, idx) => {
-                                                const m = getStockMetrics(p.id);
-                                                return (
-                                                    <tr key={p.id} className="hover:bg-emerald-50/30 group fade-in-up">
-                                                        <td className="row-index">{idx + 1}</td>
-                                                        <td><input className="font-bold text-gray-700" value={p.name} onChange={e => updateRow('products', p.id, 'name', e.target.value)} placeholder="Item Description..." /></td>
-                                                        <td className="bg-emerald-50/50 p-1">
-                                                            <div className="flex items-center gap-1">
-                                                                <input
-                                                                    type="number"
-                                                                    placeholder="Add"
-                                                                    className="text-center font-black text-emerald-700 placeholder:text-emerald-300 w-full min-w-0"
-                                                                    value={restockInputs[p.id] || ''}
-                                                                    onChange={e => setRestockInputs(prev => ({ ...prev, [p.id]: e.target.value }))}
-                                                                    onKeyDown={e => {
-                                                                        if (e.key === 'Enter') {
-                                                                            handleRestock(p.id, restockInputs[p.id]);
-                                                                            setRestockInputs(prev => ({ ...prev, [p.id]: '' }));
-                                                                        }
-                                                                    }}
-                                                                />
-                                                                <button
-                                                                    className="bg-emerald-600 text-white rounded-lg w-10 h-10 flex items-center justify-center font-bold shadow-md hover:bg-emerald-700 active:scale-95 transition-all z-10"
-                                                                    onClick={() => {
+                            <div className="spreadsheet-container border-none overflow-x-auto">
+                                <table className="min-w-[1000px] w-full">
+                                    <thead>
+                                        <tr>
+                                            <th className="w-10"></th>
+                                            <th className="text-left font-black">Item Name</th>
+                                            <th className="w-32 text-center bg-emerald-50 text-emerald-800 font-black">Restock (+)</th>
+                                            <th className="w-24 text-right">In-Stock</th>
+                                            <th className="w-24 text-right">Sold</th>
+                                            <th className="w-28 text-right font-black">Cost (₦)</th>
+                                            <th className="w-28 text-right font-black">Sell (₦)</th>
+                                            <th className="w-32 text-right">Current</th>
+                                            <th className="w-40 text-right font-black">Valuation</th>
+                                            <th className="w-16"></th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {(data.products || []).map((p, idx) => {
+                                            const m = getStockMetrics(p.id);
+                                            return (
+                                                <tr key={p.id} className="hover:bg-emerald-50/30 group fade-in-up">
+                                                    <td className="row-index">{idx + 1}</td>
+                                                    <td><input className="font-bold text-gray-700" value={p.name} onChange={e => updateRow('products', p.id, 'name', e.target.value)} placeholder="Item Description..." /></td>
+                                                    <td className="bg-emerald-50/50 p-1">
+                                                        <div className="flex items-center gap-1">
+                                                            <input
+                                                                type="number"
+                                                                placeholder="Add"
+                                                                className="text-center font-black text-emerald-700 placeholder:text-emerald-300 w-full min-w-0"
+                                                                value={restockInputs[p.id] || ''}
+                                                                onChange={e => setRestockInputs(prev => ({ ...prev, [p.id]: e.target.value }))}
+                                                                onKeyDown={e => {
+                                                                    if (e.key === 'Enter') {
                                                                         handleRestock(p.id, restockInputs[p.id]);
                                                                         setRestockInputs(prev => ({ ...prev, [p.id]: '' }));
-                                                                    }}
-                                                                >
-                                                                    +
-                                                                </button>
-                                                            </div>
-                                                        </td>
-                                                        <td className="text-right font-bold text-gray-400 p-2">{m.total}</td>
-                                                        <td className="text-right font-bold text-emerald-600 p-2">
-                                                            {m.soldPeriod}
-                                                            {filter.type !== 'all' && <span className="block text-[8px] text-gray-400 font-black">Total: {m.soldTotal}</span>}
-                                                        </td>
-                                                        <td><input type="number" className="text-right font-bold" value={p.cost} onChange={e => updateRow('products', p.id, 'cost', e.target.value)} /></td>
-                                                        <td><input type="number" className="text-right font-bold text-emerald-700" value={p.price} onChange={e => updateRow('products', p.id, 'price', e.target.value)} /></td>
-                                                        <td className={`text-right font-black p-2 ${m.isAlert ? 'text-red-500 bg-red-50' : 'text-emerald-800'}`}>
-                                                            {m.current}
-                                                            {m.isAlert && <span className="block text-[8px] uppercase tracking-tighter animate-bounce">Low Stock</span>}
-                                                        </td>
-                                                        <td className="p-2 text-right font-black text-gray-600 bg-gray-50/50">₦{(m.current * (Number(p.cost) || 0)).toLocaleString()}</td>
-                                                        <td className="text-center opacity-0 group-hover:opacity-100"><button onClick={() => deleteRow('products', p.id)} className="text-red-400 font-bold hover:scale-125 transition-transform">×</button></td>
-                                                    </tr>
-                                                );
-                                            })}
-                                        </tbody>
-                                    </table>
-                                </div>
-                            </section>
-
-                            {/* Sales Sheet Section */}
-                            <section className="bg-white rounded-[2rem] shadow-xl border border-gray-100 overflow-hidden mb-12">
-                                <div className="p-6 bg-gray-50 border-b flex justify-between items-center">
-                                    <h3 className="font-black text-gray-700 flex items-center gap-2">
-                                        <span className="p-2 bg-blue-100 text-blue-700 rounded-lg text-xs">02</span>
-                                        DAILY SALES JOURNAL {filter.type !== 'all' ? `(${filter.type.toUpperCase()})` : '(ALL-TIME)'}
-                                    </h3>
-                                    <button onClick={() => addRow('sales')} className="px-4 py-2 bg-blue-600 text-white text-xs font-bold rounded-lg hover:bg-blue-700 whitespace-nowrap">+ NEW SALE</button>
-                                </div>
-                                <div className="spreadsheet-container border-none overflow-x-auto">
-                                    <table className="min-w-[1000px] w-full">
-                                        <thead>
-                                            <tr>
-                                                <th className="w-10"></th>
-                                                <th className="w-48 text-left">Date</th>
-                                                <th className="text-left">Sold Item</th>
-                                                <th className="w-24 text-right">Qty</th>
-                                                <th className="w-32 text-right">Unit Cost (₦)</th>
-                                                <th className="w-32 text-right">Sold Price (₦)</th>
-                                                <th className="w-40 text-right">Gross Total</th>
-                                                <th className="w-16"></th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            {(filteredSales || []).map((s, idx) => (
-                                                <tr key={s.id} className="hover:bg-blue-50/30 group">
-                                                    <td className="row-index">{idx + 1}</td>
-                                                    <td><input type="date" value={s.date} onChange={e => updateRow('sales', s.id, 'date', e.target.value)} /></td>
-                                                    <td>
-                                                        <select value={s.productId} onChange={e => {
-                                                            const p = data.products.find(prod => prod.id == e.target.value);
-                                                            setData(prev => ({
-                                                                ...prev,
-                                                                sales: (prev.sales || []).map(row => row.id === s.id ? {
-                                                                    ...row,
-                                                                    productId: e.target.value,
-                                                                    price: p?.price || 0,
-                                                                    cost: p?.cost || 0
-                                                                } : row)
-                                                            }));
-                                                        }}>
-                                                            <option value="">Select Product...</option>
-                                                            {data.products.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
-                                                        </select>
+                                                                    }
+                                                                }}
+                                                            />
+                                                            <button
+                                                                className="bg-emerald-600 text-white rounded-lg w-10 h-10 flex items-center justify-center font-bold shadow-md hover:bg-emerald-700 active:scale-95 transition-all z-10"
+                                                                onClick={() => {
+                                                                    handleRestock(p.id, restockInputs[p.id]);
+                                                                    setRestockInputs(prev => ({ ...prev, [p.id]: '' }));
+                                                                }}
+                                                            >
+                                                                +
+                                                            </button>
+                                                        </div>
                                                     </td>
-                                                    <td><input type="number" className="text-right font-bold" value={s.qty} onChange={e => updateRow('sales', s.id, 'qty', e.target.value)} /></td>
-                                                    <td><input type="number" className="text-right text-gray-400" value={s.cost} onChange={e => updateRow('sales', s.id, 'cost', e.target.value)} /></td>
-                                                    <td><input type="number" className="text-right font-bold text-emerald-700" value={s.price} onChange={e => updateRow('sales', s.id, 'price', e.target.value)} /></td>
-                                                    <td className="p-2 text-right font-black text-emerald-600 bg-emerald-50/30">₦{(s.qty * s.price).toLocaleString()}</td>
-                                                    <td className="text-center opacity-0 group-hover:opacity-100"><button onClick={() => deleteRow('sales', s.id)} className="text-red-400 font-bold">×</button></td>
-                                                </tr>
-                                            ))}
-                                        </tbody>
-                                    </table>
-                                </div>
-                            </section>
-
-                            {/* Expenses Sheet Section */}
-                            <section className="bg-white rounded-[2rem] shadow-xl border border-gray-100 overflow-hidden">
-                                <div className="p-6 bg-gray-50 border-b flex justify-between items-center">
-                                    <h3 className="font-black text-gray-700 flex items-center gap-2">
-                                        <span className="p-2 bg-rose-100 text-rose-700 rounded-lg text-xs">03</span>
-                                        BUSINESS EXPENSE LEDGER {filter.type !== 'all' ? `(${filter.type.toUpperCase()})` : '(ALL-TIME)'}
-                                    </h3>
-                                    <button onClick={() => addRow('expenses')} className="px-4 py-2 bg-rose-600 text-white text-xs font-bold rounded-lg hover:bg-rose-700 whitespace-nowrap">+ NEW EXPENSE</button>
-                                </div>
-                                <div className="spreadsheet-container border-none overflow-x-auto">
-                                    <table className="min-w-[1000px] w-full">
-                                        <thead>
-                                            <tr>
-                                                <th className="w-10"></th>
-                                                <th className="w-48 text-left">Date</th>
-                                                <th className="w-48 text-left">Category</th>
-                                                <th className="text-left">Memo / Reason</th>
-                                                <th className="w-48 text-right">Expense Amount (₦)</th>
-                                                <th className="w-16"></th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            {(filteredExpenses || []).map((exp, idx) => (
-                                                <tr key={exp.id} className="hover:bg-rose-50/30 group">
-                                                    <td className="row-index">{idx + 1}</td>
-                                                    <td><input type="date" value={exp.date} onChange={e => updateRow('expenses', exp.id, 'date', e.target.value)} /></td>
-                                                    <td>
-                                                        <select value={exp.category} onChange={e => updateRow('expenses', exp.id, 'category', e.target.value)}>
-                                                            <option>Rent & Lease</option><option>Utilities</option><option>Transport</option><option>Salaries</option><option>Taxes</option><option>Equipment</option><option>Other</option>
-                                                        </select>
+                                                    <td className="text-right font-bold text-gray-400 p-2">{m.total}</td>
+                                                    <td className="text-right font-bold text-emerald-600 p-2">
+                                                        {m.soldPeriod}
+                                                        {filter.type !== 'all' && <span className="block text-[8px] text-gray-400 font-black">Total: {m.soldTotal}</span>}
                                                     </td>
-                                                    <td><input value={exp.description} onChange={e => updateRow('expenses', exp.id, 'description', e.target.value)} placeholder="Expense Purpose..." /></td>
-                                                    <td><input type="number" className="text-right text-rose-600 font-bold" value={exp.amount} onChange={e => updateRow('expenses', exp.id, 'amount', e.target.value)} /></td>
-                                                    <td className="text-center opacity-0 group-hover:opacity-100"><button onClick={() => deleteRow('expenses', exp.id)} className="text-red-400 font-bold">×</button></td>
+                                                    <td><input type="number" className="text-right font-bold" value={p.cost} onChange={e => updateRow('products', p.id, 'cost', e.target.value)} /></td>
+                                                    <td><input type="number" className="text-right font-bold text-emerald-700" value={p.price} onChange={e => updateRow('products', p.id, 'price', e.target.value)} /></td>
+                                                    <td className={`text-right font-black p-2 ${m.isAlert ? 'text-red-500 bg-red-50' : 'text-emerald-800'}`}>
+                                                        {m.current}
+                                                        {m.isAlert && <span className="block text-[8px] uppercase tracking-tighter animate-bounce">Low Stock</span>}
+                                                    </td>
+                                                    <td className="p-2 text-right font-black text-gray-600 bg-gray-50/50">₦{(m.current * (Number(p.cost) || 0)).toLocaleString()}</td>
+                                                    <td className="text-center opacity-0 group-hover:opacity-100"><button onClick={() => deleteRow('products', p.id)} className="text-red-400 font-bold hover:scale-125 transition-transform">×</button></td>
                                                 </tr>
-                                            ))}
-                                        </tbody>
-                                    </table>
-                                </div>
-                            </section>
-                        </div>
+                                            );
+                                        })}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </section>
+
+                        {/* Sales Sheet Section */}
+                        <section className="bg-white rounded-[2rem] shadow-xl border border-gray-100 overflow-hidden mb-12">
+                            <div className="p-6 bg-gray-50 border-b flex justify-between items-center">
+                                <h3 className="font-black text-gray-700 flex items-center gap-2">
+                                    <span className="p-2 bg-blue-100 text-blue-700 rounded-lg text-xs">02</span>
+                                    DAILY SALES JOURNAL {filter.type !== 'all' ? `(${filter.type.toUpperCase()})` : '(ALL-TIME)'}
+                                </h3>
+                                <button onClick={() => addRow('sales')} className="px-4 py-2 bg-blue-600 text-white text-xs font-bold rounded-lg hover:bg-blue-700 whitespace-nowrap">+ NEW SALE</button>
+                            </div>
+                            <div className="spreadsheet-container border-none overflow-x-auto">
+                                <table className="min-w-[1000px] w-full">
+                                    <thead>
+                                        <tr>
+                                            <th className="w-10"></th>
+                                            <th className="w-48 text-left">Date</th>
+                                            <th className="text-left">Sold Item</th>
+                                            <th className="w-24 text-right">Qty</th>
+                                            <th className="w-32 text-right">Unit Cost (₦)</th>
+                                            <th className="w-32 text-right">Sold Price (₦)</th>
+                                            <th className="w-40 text-right">Gross Total</th>
+                                            <th className="w-16"></th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {(filteredSales || []).map((s, idx) => (
+                                            <tr key={s.id} className="hover:bg-blue-50/30 group">
+                                                <td className="row-index">{idx + 1}</td>
+                                                <td><input type="date" value={s.date} onChange={e => updateRow('sales', s.id, 'date', e.target.value)} /></td>
+                                                <td>
+                                                    <select value={s.productId} onChange={e => {
+                                                        const p = data.products.find(prod => prod.id == e.target.value);
+                                                        setData(prev => ({
+                                                            ...prev,
+                                                            sales: (prev.sales || []).map(row => row.id === s.id ? {
+                                                                ...row,
+                                                                productId: e.target.value,
+                                                                price: p?.price || 0,
+                                                                cost: p?.cost || 0
+                                                            } : row)
+                                                        }));
+                                                    }}>
+                                                        <option value="">Select Product...</option>
+                                                        {data.products.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                                                    </select>
+                                                </td>
+                                                <td><input type="number" className="text-right font-bold" value={s.qty} onChange={e => updateRow('sales', s.id, 'qty', e.target.value)} /></td>
+                                                <td><input type="number" className="text-right text-gray-400" value={s.cost} onChange={e => updateRow('sales', s.id, 'cost', e.target.value)} /></td>
+                                                <td><input type="number" className="text-right font-bold text-emerald-700" value={s.price} onChange={e => updateRow('sales', s.id, 'price', e.target.value)} /></td>
+                                                <td className="p-2 text-right font-black text-emerald-600 bg-emerald-50/30">₦{(s.qty * s.price).toLocaleString()}</td>
+                                                <td className="text-center opacity-0 group-hover:opacity-100"><button onClick={() => deleteRow('sales', s.id)} className="text-red-400 font-bold">×</button></td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </section>
+
+                        {/* Expenses Sheet Section */}
+                        <section className="bg-white rounded-[2rem] shadow-xl border border-gray-100 overflow-hidden">
+                            <div className="p-6 bg-gray-50 border-b flex justify-between items-center">
+                                <h3 className="font-black text-gray-700 flex items-center gap-2">
+                                    <span className="p-2 bg-rose-100 text-rose-700 rounded-lg text-xs">03</span>
+                                    BUSINESS EXPENSE LEDGER {filter.type !== 'all' ? `(${filter.type.toUpperCase()})` : '(ALL-TIME)'}
+                                </h3>
+                                <button onClick={() => addRow('expenses')} className="px-4 py-2 bg-rose-600 text-white text-xs font-bold rounded-lg hover:bg-rose-700 whitespace-nowrap">+ NEW EXPENSE</button>
+                            </div>
+                            <div className="spreadsheet-container border-none overflow-x-auto">
+                                <table className="min-w-[1000px] w-full">
+                                    <thead>
+                                        <tr>
+                                            <th className="w-10"></th>
+                                            <th className="w-48 text-left">Date</th>
+                                            <th className="w-48 text-left">Category</th>
+                                            <th className="text-left">Memo / Reason</th>
+                                            <th className="w-48 text-right">Expense Amount (₦)</th>
+                                            <th className="w-16"></th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {(filteredExpenses || []).map((exp, idx) => (
+                                            <tr key={exp.id} className="hover:bg-rose-50/30 group">
+                                                <td className="row-index">{idx + 1}</td>
+                                                <td><input type="date" value={exp.date} onChange={e => updateRow('expenses', exp.id, 'date', e.target.value)} /></td>
+                                                <td>
+                                                    <select value={exp.category} onChange={e => updateRow('expenses', exp.id, 'category', e.target.value)}>
+                                                        <option>Rent & Lease</option><option>Utilities</option><option>Transport</option><option>Salaries</option><option>Taxes</option><option>Equipment</option><option>Other</option>
+                                                    </select>
+                                                </td>
+                                                <td><input value={exp.description} onChange={e => updateRow('expenses', exp.id, 'description', e.target.value)} placeholder="Expense Purpose..." /></td>
+                                                <td><input type="number" className="text-right text-rose-600 font-bold" value={exp.amount} onChange={e => updateRow('expenses', exp.id, 'amount', e.target.value)} /></td>
+                                                <td className="text-center opacity-0 group-hover:opacity-100"><button onClick={() => deleteRow('expenses', exp.id)} className="text-red-400 font-bold">×</button></td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </section>
                     </div>
-
                     {/* Footer Utility */}
                     <div className="bg-white border-t p-2 flex justify-between items-center text-[10px] uppercase font-black tracking-widest text-gray-400 shadow-inner px-6 shrink-0">
                         <div>Nigeria Master Tax Spreadsheet &bull; RC Edition</div>
@@ -935,20 +932,20 @@
 
         const AnalyticsCard = ({ label, value, sub, color, isPrice = true, icon }) => {
             const styles = {
-                emerald: { bgBlob: 'bg-emerald-500/10', iconBg: 'bg-emerald-100', iconText: 'text-emerald-700', labelText: 'text-emerald-700', labelHover: 'group-hover:text-emerald-800' },
-                blue: { bgBlob: 'bg-blue-500/10', iconBg: 'bg-blue-100', iconText: 'text-blue-700', labelText: 'text-blue-700', labelHover: 'group-hover:text-blue-800' },
-                amber: { bgBlob: 'bg-amber-500/10', iconBg: 'bg-amber-100', iconText: 'text-amber-700', labelText: 'text-amber-700', labelHover: 'group-hover:text-amber-800' },
-                rose: { bgBlob: 'bg-rose-500/10', iconBg: 'bg-rose-100', iconText: 'text-rose-700', labelText: 'text-rose-700', labelHover: 'group-hover:text-rose-800' },
-                orange: { bgBlob: 'bg-orange-500/10', iconBg: 'bg-orange-100', iconText: 'text-orange-700', labelText: 'text-orange-700', labelHover: 'group-hover:text-orange-800' },
+                emerald: { bgBlob: 'bg-emerald-500/10', iconBg: 'bg-emerald-100', iconText: 'text-emerald-700', labelText: 'text-emerald-800', labelHover: 'group-hover:text-emerald-900', border: 'border-emerald-200' },
+                blue: { bgBlob: 'bg-blue-500/10', iconBg: 'bg-blue-100', iconText: 'text-blue-700', labelText: 'text-blue-800', labelHover: 'group-hover:text-blue-900', border: 'border-blue-200' },
+                yellow: { bgBlob: 'bg-yellow-500/20', iconBg: 'bg-yellow-100', iconText: 'text-yellow-800', labelText: 'text-yellow-800', labelHover: 'group-hover:text-yellow-900', border: 'border-yellow-300' },
+                red: { bgBlob: 'bg-red-500/10', iconBg: 'bg-red-100', iconText: 'text-red-700', labelText: 'text-red-800', labelHover: 'group-hover:text-red-900', border: 'border-red-200' },
+                orange: { bgBlob: 'bg-orange-500/10', iconBg: 'bg-orange-100', iconText: 'text-orange-700', labelText: 'text-orange-800', labelHover: 'group-hover:text-orange-900', border: 'border-orange-200' },
             };
             const s = styles[color] || styles.emerald;
 
             return (
-                <div className={`bg-white/95 backdrop-blur-xl p-4 md:p-6 rounded-2xl md:rounded-[2rem] border border-gray-100 stat-card flex flex-col h-full fade-in-up relative overflow-hidden group shadow-xl shadow-gray-200/60`}>
+                <div className={`bg-white/95 backdrop-blur-xl p-4 md:p-6 rounded-2xl md:rounded-[2rem] border-2 ${s.border} stat-card flex flex-col h-full fade-in-up relative overflow-hidden group shadow-xl shadow-gray-200/60`}>
                     <div className={`absolute top-0 right-0 w-16 h-16 md:w-24 md:h-24 ${s.bgBlob} rounded-full -mr-6 -mt-6 md:-mr-8 md:-mt-8 transition-transform group-hover:scale-150 duration-700`}></div>
                     <div className="flex justify-between items-start mb-2 md:mb-4 relative z-10">
                         <div className={`w-8 h-8 md:w-12 md:h-12 ${s.iconBg} ${s.iconText} rounded-xl md:rounded-2xl flex items-center justify-center text-lg md:text-2xl shadow-inner`}>{icon}</div>
-                        <div className="text-[8px] md:text-[10px] font-black text-gray-500 uppercase tracking-[0.2em] text-right leading-tight">{sub}</div>
+                        <div className="text-[8px] md:text-[10px] font-black text-gray-800 uppercase tracking-[0.2em] text-right leading-tight">{sub}</div>
                     </div>
                     <div className="mt-auto relative z-10">
                         <div className={`text-[10px] md:text-xs font-black ${s.labelText} uppercase tracking-widest mb-1 ${s.labelHover} transition-colors`}>{label}</div>
