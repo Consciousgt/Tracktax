@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -11,6 +12,7 @@
     <link
         href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Inter:wght@300;400;500;600;700&display=swap"
         rel="stylesheet">
+
     <!-- Firebase SDK -->
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
@@ -21,6 +23,7 @@
             --excel-green: #217346;
             --excel-border: #d1d5db;
         }
+
         body {
             font-family: 'Inter', sans-serif;
             background: #f3f4f6;
@@ -30,20 +33,24 @@
             background-blend-mode: overlay;
             color: #1a1a1a;
         }
+
         .main-content {
             background: rgba(248, 250, 252, 0.9);
             backdrop-filter: blur(4px);
         }
+
         .spreadsheet-container {
             background: white;
             border: 1px solid var(--excel-border);
             overflow: auto;
         }
+
         table {
             border-collapse: separate;
             border-spacing: 0;
             width: 100%;
         }
+
         th {
             background: #f9fafb;
             position: sticky;
@@ -57,6 +64,7 @@
             font-weight: 700;
             color: #4b5563;
         }
+
         td {
             border-bottom: 1px solid #e5e7eb;
             border-right: 1px solid #e5e7eb;
@@ -64,6 +72,7 @@
             font-size: 0.85rem;
             padding: 0;
         }
+
         input,
         select {
             width: 100%;
@@ -73,10 +82,12 @@
             outline: none;
             background: transparent;
         }
+
         input:focus {
             background: #ecfdf5;
             box-shadow: inset 0 0 0 2px var(--excel-green);
         }
+
         .row-index {
             background: #f9fafb;
             width: 40px;
@@ -85,13 +96,16 @@
             font-weight: bold;
             border-right: 2px solid var(--excel-border);
         }
+
         .stat-card {
             transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
         }
+
         .stat-card:hover {
             transform: translateY(-4px);
             box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
         }
+
         .sheet-tab {
             cursor: pointer;
             border-bottom: 3px solid transparent;
@@ -99,27 +113,33 @@
             font-weight: 600;
             color: #6b7280;
         }
+
         .sheet-tab.active {
             border-bottom-color: var(--excel-green);
             color: var(--excel-green);
             background: #f0fdf4;
         }
+
         .glass-header {
             background: rgba(255, 255, 255, 0.9);
             backdrop-filter: blur(8px);
             border-bottom: 1px solid #e5e7eb;
         }
+
         ::-webkit-scrollbar {
             width: 8px;
             height: 8px;
         }
+
         ::-webkit-scrollbar-thumb {
             background: #d1d5db;
             border-radius: 4px;
         }
+
         ::-webkit-scrollbar-thumb:hover {
             background: #9ca3af;
         }
+
         .mesh-bg {
             position: fixed;
             top: 0;
@@ -130,24 +150,30 @@
             background: linear-gradient(45deg, #f0fdf4 0%, #ecfdf5 100%);
             overflow: hidden;
         }
+
         .mesh-blob {
             position: absolute;
             filter: blur(80px);
             border-radius: 50%;
             opacity: 0.4;
         }
+
         .activity-item {
             transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
         }
     </style>
 </head>
+
 <body class="h-screen flex flex-col overflow-hidden">
     <div id="root" class="h-full"></div>
+
     <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
     <script type="text/babel">
         const { useState, useEffect, useMemo, useRef } = React;
+
         // --- FIREBASE CONFIG ---
         // REPLACE WITH YOUR ACTUAL CONFIG FROM FIREBASE CONSOLE
         const firebaseConfig = {
@@ -159,12 +185,15 @@
             appId: "1:850128101144:web:bac6a3329d01a2678d086d",
             measurementId: "G-WLM37CWCX0"
         };
+
         firebase.initializeApp(firebaseConfig);
         const auth = firebase.auth();
         const db = firebase.firestore();
+
         const DB_KEY = 'tax_master_v5';
         const DataService = {
             getDocRef: (uid) => db.collection('users').doc(uid),
+
             loadFromCloud: async (uid) => {
                 const doc = await DataService.getDocRef(uid).get();
                 if (doc.exists) {
@@ -172,12 +201,14 @@
                 }
                 return null;
             },
+
             saveToCloud: async (uid, data) => {
                 await DataService.getDocRef(uid).set({
                     ...data,
                     lastSynced: firebase.firestore.FieldValue.serverTimestamp()
                 }, { merge: true });
             },
+
             loadLocal: () => {
                 const defaults = { products: [], sales: [], expenses: [], restocks: [], business: { name: '', pin: null, cac: '', description: '' } };
                 const saved = JSON.parse(localStorage.getItem(DB_KEY)) || {};
@@ -191,6 +222,7 @@
             },
             saveLocal: (data) => localStorage.setItem(DB_KEY, JSON.stringify(data))
         };
+
         // --- PREMIUM COMPONENTS ---
         const AnimatedBackground = () => {
             useEffect(() => {
@@ -208,6 +240,7 @@
                 </div>
             );
         };
+
         const ActivityFeed = ({ activities }) => {
             return (
                 <div className="fixed top-8 right-8 w-64 space-y-3 pointer-events-none z-[100]">
@@ -225,6 +258,7 @@
                 </div>
             );
         };
+
         // --- AUTH ---
         const AuthScreen = ({ user }) => {
             const [isLogin, setIsLogin] = useState(true);
@@ -236,11 +270,13 @@
             const [loading, setLoading] = useState(false);
             const [error, setError] = useState('');
             const [vSent, setVSent] = useState(false);
+
             useEffect(() => {
                 if (window.gsap) {
                     gsap.from(".auth-card", { opacity: 0, y: 30, duration: 1, ease: "expo.out" });
                 }
             }, [isLogin, vSent]);
+
             const handleSubmit = async (e) => {
                 e.preventDefault();
                 setLoading(true);
@@ -264,6 +300,7 @@
                     setLoading(false);
                 }
             };
+
             if (user && !user.emailVerified || vSent) {
                 const handleCheckStatus = async () => {
                     setLoading(true);
@@ -280,6 +317,7 @@
                         setLoading(false);
                     }
                 };
+
                 return (
                     <div className="flex items-center justify-center min-h-screen bg-[#064e3b] p-4 font-inter">
                         <div className="bg-white/10 backdrop-blur-2xl p-8 md:p-12 rounded-[3rem] shadow-2xl border border-white/20 w-full max-w-lg text-center auth-card">
@@ -288,9 +326,11 @@
                             </div>
                             <h2 className="text-3xl font-black text-white mb-4">Verify Your Business</h2>
                             <p className="text-emerald-100/70 mb-4 font-medium">We sent a verification link to <b>{email || user?.email}</b>.</p>
+
                             <div className="bg-amber-400/20 border border-amber-400/20 p-4 rounded-2xl mb-8 text-amber-200 text-xs font-bold leading-relaxed">
                                 ⚠️ IMPORTANT: If you don't see it, please check your <b>SPAM or JUNK</b> folder and mark as "Not Spam".
                             </div>
+
                             <button
                                 onClick={handleCheckStatus}
                                 disabled={loading}
@@ -298,7 +338,9 @@
                             >
                                 {loading ? 'Checking...' : "I'VE VERIFIED &bull; ENTER VAULT"}
                             </button>
+
                             {error && <p className="text-red-300 text-xs font-bold mb-4">{error}</p>}
+
                             <button
                                 onClick={async () => {
                                     await auth.currentUser?.sendEmailVerification();
@@ -313,6 +355,7 @@
                     </div>
                 );
             }
+
             return (
                 <div className="flex items-center justify-center min-h-screen bg-[#1b4332] p-4 font-inter">
                     <div className="bg-white p-8 md:p-12 rounded-[2.5rem] shadow-2xl w-full max-w-lg border-t-[12px] border-[#217346] auth-card">
@@ -323,6 +366,7 @@
                             <h1 className="text-4xl font-black text-gray-900 tracking-tight text-center">TAX MASTER</h1>
                             <p className="text-gray-500 mt-2 font-bold uppercase text-xs tracking-widest text-center">Cloud Ledger Solution &bull; Elite Edition</p>
                         </div>
+
                         <form onSubmit={handleSubmit} className="space-y-6">
                             <div className="space-y-4">
                                 <div className="p-1 px-4 bg-gray-50 rounded-2xl border border-gray-100">
@@ -347,6 +391,7 @@
                                         required
                                     />
                                 </div>
+
                                 {!isLogin && (
                                     <div className="pt-4 border-t border-gray-100 space-y-4 animate-in fade-in slide-in-from-top-4">
                                         <div className="p-1 px-4 bg-emerald-50/30 rounded-2xl border border-emerald-100">
@@ -371,7 +416,9 @@
                                     </div>
                                 )}
                             </div>
+
                             {error && <p className="text-red-500 text-xs font-bold text-center">{error}</p>}
+
                             <button
                                 type="submit"
                                 disabled={loading}
@@ -380,6 +427,7 @@
                                 <span className="relative z-10">{loading ? 'Initializing Enterprise...' : (isLogin ? 'Login to Portal' : 'Create Enterprise Account')}</span>
                                 <div className="absolute inset-0 bg-white/10 translate-y-full group-hover:translate-y-0 transition-transform duration-300"></div>
                             </button>
+
                             <button
                                 type="button"
                                 onClick={() => setIsLogin(!isLogin)}
@@ -392,6 +440,7 @@
                 </div>
             );
         };
+
         // --- MAIN APP ---
         const App = () => {
             const [user, setUser] = useState(null);
@@ -404,6 +453,7 @@
                 value: new Date().toISOString().split('T')[0]
             });
             const [restockInputs, setRestockInputs] = useState({});
+
             const addActivity = (msg, type = 'action') => {
                 const id = Date.now();
                 const newAct = {
@@ -413,11 +463,13 @@
                     time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
                 };
                 setActivities(prev => [...prev, newAct]);
+
                 // Auto-remove after 4 seconds
                 setTimeout(() => {
                     setActivities(prev => prev.filter(a => a.id !== id));
                 }, 4000);
             };
+
             // Auth State Listener
             useEffect(() => {
                 const unsubscribe = auth.onAuthStateChanged(async (u) => {
@@ -445,6 +497,7 @@
                 });
                 return unsubscribe;
             }, []);
+
             // Save data to cloud when changed
             useEffect(() => {
                 if (user && !loading) {
@@ -465,6 +518,7 @@
                 }
                 DataService.saveLocal(data);
             }, [data, user, loading]);
+
             useEffect(() => {
                 if (window.gsap && user && user.emailVerified && !loading) {
                     gsap.from(".fade-in-up", {
@@ -472,14 +526,18 @@
                     });
                 }
             }, [user, loading]);
+
             const isDateInRange = (dateStr) => {
                 if (filter.type === 'all') return true;
                 if (!dateStr) return false;
+
                 if (filter.type === 'day') {
                     return dateStr === filter.value;
                 }
+
                 const date = new Date(dateStr);
                 const now = new Date();
+
                 if (filter.type === 'month') {
                     const target = filter.value || now.toISOString().slice(0, 7);
                     return dateStr.startsWith(target);
@@ -495,29 +553,36 @@
                 }
                 return true;
             };
+
             const adjustDate = (days) => {
                 if (filter.type !== 'day') return;
                 const date = new Date(filter.value);
                 date.setDate(date.getDate() + days);
                 setFilter(f => ({ ...f, value: date.toISOString().split('T')[0] }));
             };
+
             const filteredSales = useMemo(() => data.sales.filter(s => isDateInRange(s.date)), [data.sales, filter]);
             const filteredExpenses = useMemo(() => data.expenses.filter(e => isDateInRange(e.date)), [data.expenses, filter]);
+
             const stats = useMemo(() => {
                 const revenue = filteredSales.reduce((sum, s) => sum + (Number(s.price) * Number(s.qty) || 0), 0);
                 const cogs = filteredSales.reduce((sum, s) => {
                     // Use snapshotted cost for historical accuracy
                     return sum + ((Number(s.cost) || 0) * (Number(s.qty) || 0));
                 }, 0);
+
                 const expenses = filteredExpenses.reduce((sum, e) => sum + (Number(e.amount) || 0), 0);
                 const netProfit = revenue - cogs - expenses;
+
                 const lowStockCount = data.products.filter(p => {
                     const totalStock = (Number(p.stock) || 0) + (data.restocks || []).filter(r => r.productId == p.id).reduce((sum, r) => sum + Number(r.qty), 0);
                     const soldQty = data.sales.filter(s => s.productId == p.id).reduce((sum, s) => sum + Number(s.qty), 0);
                     return totalStock > 0 && (soldQty >= 0.8 * totalStock);
                 }).length;
+
                 return { revenue, cogs, expenses, netProfit, lowStockCount };
             }, [filteredSales, filteredExpenses, data.products, data.restocks]);
+
             const getStockMetrics = (productId) => {
                 const prod = data.products.find(p => p.id == productId);
                 const restocked = (data.restocks || []).filter(r => r.productId == productId).reduce((sum, r) => sum + Number(r.qty), 0);
@@ -528,27 +593,32 @@
                 const isAlert = total > 0 && (soldTotal >= 0.8 * total);
                 return { restocked, total, soldTotal, soldPeriod, current, isAlert };
             };
+
             const handleRestock = (productId, qty) => {
                 const amount = Number(qty);
                 if (isNaN(amount) || amount <= 0) return;
+
                 const newRestock = {
                     id: Date.now(),
                     productId,
                     qty: amount,
                     date: new Date().toLocaleString()
                 };
+
                 setData(prev => ({
                     ...prev,
                     restocks: [...(prev.restocks || []), newRestock]
                 }));
                 addActivity(`Restocked ${data.products.find(p => p.id == productId)?.name || 'item'}`);
             };
+
             const updateRow = (sheet, id, field, value) => {
                 setData(prev => ({
                     ...prev,
                     [sheet]: (prev[sheet] || []).map(row => row.id === id ? { ...row, [field]: value } : row)
                 }));
             };
+
             const addRow = (sheet) => {
                 const newRow = sheet === 'products' ? { id: Date.now(), name: '', cost: 0, price: 0 } :
                     sheet === 'sales' ? { id: Date.now(), productId: '', date: new Date().toISOString().split('T')[0], qty: 1, price: 0, cost: 0 } :
@@ -556,12 +626,14 @@
                 setData(prev => ({ ...prev, [sheet]: [...(prev[sheet] || []), newRow] }));
                 addActivity(`New ${sheet.slice(0, -1)} entry added`);
             };
+
             const deleteRow = (sheet, id) => {
                 if (confirm("Delete this row?")) {
                     setData(prev => ({ ...prev, [sheet]: (prev[sheet] || []).filter(r => r.id !== id) }));
                     addActivity(`${sheet.slice(0, -1).toUpperCase()} record removed`);
                 }
             };
+
             if (loading) return (
                 <div className="flex items-center justify-center min-h-screen bg-emerald-950">
                     <div className="flex flex-col items-center">
@@ -570,11 +642,14 @@
                     </div>
                 </div>
             );
+
             if (!user || (user && !user.emailVerified)) return <AuthScreen user={user} />;
+
             return (
                 <div className="flex flex-col h-screen bg-transparent relative overflow-hidden">
                     <AnimatedBackground />
                     <ActivityFeed activities={activities} />
+
                     {/* Enterprise Header */}
                     <div className="bg-transparent border-b border-gray-100/50 p-4 md:p-8 flex flex-col items-center text-center">
                         <div className="mb-4 space-y-2 w-full max-w-2xl">
@@ -602,6 +677,7 @@
                                 />
                             </div>
                         </div>
+
                         {/* Period Selection Controls */}
                         <div className="flex flex-wrap items-center justify-center gap-4 mt-6 p-2 bg-white/60 backdrop-blur-md rounded-3xl border border-white/40 shadow-xl shadow-gray-200/50">
                             <div className="flex gap-1 p-1 bg-white/80 rounded-2xl">
@@ -615,6 +691,7 @@
                                     </button>
                                 ))}
                             </div>
+
                             {filter.type !== 'all' && (
                                 <div className="flex items-center gap-2 animate-in zoom-in-95">
                                     {filter.type === 'day' && (
@@ -636,6 +713,7 @@
                             )}
                         </div>
                     </div>
+
                     <div className="flex-1 overflow-y-auto main-content">
                         <div className="p-8 max-w-[1600px] mx-auto">
                             {/* Dashboard Stats */}
@@ -645,11 +723,13 @@
                                 <AnalyticsCard label="COGS" value={stats.cogs} sub="Direct Cost" color="amber" isPrice icon="📦" />
                                 <AnalyticsCard label="Expenses" value={stats.expenses} sub="Overhead" color="rose" isPrice icon="💸" />
                             </div>
+
                             {stats.lowStockCount > 0 && (
                                 <div className="mb-12 animate-bounce">
                                     <AnalyticsCard label="Low Stock Items" value={stats.lowStockCount} sub="Immediate Attention Required" color="orange" isPrice={false} icon="⚠️" />
                                 </div>
                             )}
+
                             <div className="flex justify-end gap-3 mb-8">
                                 <button onClick={() => auth.signOut()} className="px-6 py-3 bg-white border border-gray-100 text-gray-600 font-bold rounded-2xl hover:bg-gray-50 transition-colors shadow-sm flex items-center gap-2">
                                     <span>🔒</span> LOGOUT
@@ -658,6 +738,7 @@
                                     <span>📊</span> EXPORT AS EXCEL
                                 </button>
                             </div>
+
                             {/* Inventory Sheet Section */}
                             <section className="bg-white rounded-[2rem] shadow-xl border border-gray-100 overflow-hidden mb-12">
                                 <div className="p-6 bg-gray-50 border-b flex justify-between items-center">
@@ -736,6 +817,7 @@
                                     </table>
                                 </div>
                             </section>
+
                             {/* Sales Sheet Section */}
                             <section className="bg-white rounded-[2rem] shadow-xl border border-gray-100 overflow-hidden mb-12">
                                 <div className="p-6 bg-gray-50 border-b flex justify-between items-center">
@@ -792,6 +874,7 @@
                                     </table>
                                 </div>
                             </section>
+
                             {/* Expenses Sheet Section */}
                             <section className="bg-white rounded-[2rem] shadow-xl border border-gray-100 overflow-hidden">
                                 <div className="p-6 bg-gray-50 border-b flex justify-between items-center">
@@ -834,6 +917,7 @@
                             </section>
                         </div>
                     </div>
+
                     {/* Footer Utility */}
                     <div className="bg-white border-t p-2 flex justify-between items-center text-[10px] uppercase font-black tracking-widest text-gray-400 shadow-inner px-6 shrink-0">
                         <div>Nigeria Master Tax Spreadsheet &bull; RC Edition</div>
@@ -848,6 +932,7 @@
                 </div>
             );
         };
+
         const AnalyticsCard = ({ label, value, sub, color, isPrice = true, icon }) => (
             <div className={`bg-white/80 backdrop-blur-xl p-4 md:p-6 rounded-2xl md:rounded-[2rem] border border-gray-100 stat-card flex flex-col h-full fade-in-up relative overflow-hidden group shadow-lg shadow-gray-200/50`}>
                 <div className={`absolute top-0 right-0 w-16 h-16 md:w-24 md:h-24 bg-${color}-500/10 rounded-full -mr-6 -mt-6 md:-mr-8 md:-mt-8 transition-transform group-hover:scale-150 duration-700`}></div>
@@ -863,9 +948,11 @@
                 </div>
             </div>
         );
+
         const exportToExcel = (data, stats, sales, expenses, filter) => {
             const wb = XLSX.utils.book_new();
             const periodLabel = filter.type === 'all' ? 'All Time' : `${filter.type.toUpperCase()}: ${filter.value || 'Current'}`;
+
             // 1. Executive Summary Sheet
             const summaryData = [
                 ["Enterprise Report", data.business.name || "Tax Master Nigeria"],
@@ -880,8 +967,10 @@
                 ["Generated At", new Date().toLocaleString()]
             ];
             XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(summaryData), "Enterprise Summary");
+
             // 2. Inventory Sheet (Full)
             XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(data.products || []), "Master Inventory");
+
             // 3. Filtered Sales Sheet
             const formattedSales = (sales || []).map(s => {
                 const p = data.products.find(prod => prod.id == s.productId);
@@ -897,8 +986,10 @@
                 };
             });
             XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(formattedSales), `Sales (${filter.type})`);
+
             // 4. Filtered Expenses Sheet
             XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(expenses || []), `Expenses (${filter.type})`);
+
             // 5. Restock History Sheet
             const restockSheetData = (data.restocks || []).map(r => {
                 const p = data.products.find(prod => prod.id == r.productId);
@@ -909,10 +1000,13 @@
                 };
             });
             XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(restockSheetData), "Restock History");
+
             XLSX.writeFile(wb, `${data.business.name || 'TaxMaster'}_Report_${new Date().toISOString().slice(0, 10)}.xlsx`);
         };
+
         const root = ReactDOM.createRoot(document.getElementById('root'));
         root.render(<App />);
     </script>
 </body>
+
 </html>
