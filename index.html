@@ -933,21 +933,32 @@
             );
         };
 
-        const AnalyticsCard = ({ label, value, sub, color, isPrice = true, icon }) => (
-            <div className={`bg-white/80 backdrop-blur-xl p-4 md:p-6 rounded-2xl md:rounded-[2rem] border border-gray-100 stat-card flex flex-col h-full fade-in-up relative overflow-hidden group shadow-lg shadow-gray-200/50`}>
-                <div className={`absolute top-0 right-0 w-16 h-16 md:w-24 md:h-24 bg-${color}-500/10 rounded-full -mr-6 -mt-6 md:-mr-8 md:-mt-8 transition-transform group-hover:scale-150 duration-700`}></div>
-                <div className="flex justify-between items-start mb-2 md:mb-4 relative z-10">
-                    <div className={`w-8 h-8 md:w-12 md:h-12 bg-${color}-100 text-${color}-700 rounded-xl md:rounded-2xl flex items-center justify-center text-lg md:text-2xl shadow-inner`}>{icon}</div>
-                    <div className="text-[8px] md:text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] text-right leading-tight">{sub}</div>
-                </div>
-                <div className="mt-auto relative z-10">
-                    <div className={`text-[10px] md:text-xs font-black text-${color}-600/70 uppercase tracking-widest mb-1 group-hover:text-${color}-600 transition-colors`}>{label}</div>
-                    <div className="text-lg md:text-3xl lg:text-4xl font-black text-gray-900 font-mono tracking-tighter truncate">
-                        {isPrice ? '₦' : ''}{Number(value).toLocaleString()}
+        const AnalyticsCard = ({ label, value, sub, color, isPrice = true, icon }) => {
+            const styles = {
+                emerald: { bgBlob: 'bg-emerald-500/10', iconBg: 'bg-emerald-100', iconText: 'text-emerald-700', labelText: 'text-emerald-600/70', labelHover: 'group-hover:text-emerald-600' },
+                blue: { bgBlob: 'bg-blue-500/10', iconBg: 'bg-blue-100', iconText: 'text-blue-700', labelText: 'text-blue-600/70', labelHover: 'group-hover:text-blue-600' },
+                amber: { bgBlob: 'bg-amber-500/10', iconBg: 'bg-amber-100', iconText: 'text-amber-700', labelText: 'text-amber-600/70', labelHover: 'group-hover:text-amber-600' },
+                rose: { bgBlob: 'bg-rose-500/10', iconBg: 'bg-rose-100', iconText: 'text-rose-700', labelText: 'text-rose-600/70', labelHover: 'group-hover:text-rose-600' },
+                orange: { bgBlob: 'bg-orange-500/10', iconBg: 'bg-orange-100', iconText: 'text-orange-700', labelText: 'text-orange-600/70', labelHover: 'group-hover:text-orange-600' },
+            };
+            const s = styles[color] || styles.emerald;
+
+            return (
+                <div className={`bg-white/80 backdrop-blur-xl p-4 md:p-6 rounded-2xl md:rounded-[2rem] border border-gray-100 stat-card flex flex-col h-full fade-in-up relative overflow-hidden group shadow-lg shadow-gray-200/50`}>
+                    <div className={`absolute top-0 right-0 w-16 h-16 md:w-24 md:h-24 ${s.bgBlob} rounded-full -mr-6 -mt-6 md:-mr-8 md:-mt-8 transition-transform group-hover:scale-150 duration-700`}></div>
+                    <div className="flex justify-between items-start mb-2 md:mb-4 relative z-10">
+                        <div className={`w-8 h-8 md:w-12 md:h-12 ${s.iconBg} ${s.iconText} rounded-xl md:rounded-2xl flex items-center justify-center text-lg md:text-2xl shadow-inner`}>{icon}</div>
+                        <div className="text-[8px] md:text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] text-right leading-tight">{sub}</div>
+                    </div>
+                    <div className="mt-auto relative z-10">
+                        <div className={`text-[10px] md:text-xs font-black ${s.labelText} uppercase tracking-widest mb-1 ${s.labelHover} transition-colors`}>{label}</div>
+                        <div className="text-xl sm:text-2xl md:text-3xl lg:text-4xl font-black text-gray-900 font-mono tracking-tighter truncate">
+                            {isPrice ? '₦' : ''}{Number(value).toLocaleString()}
+                        </div>
                     </div>
                 </div>
-            </div>
-        );
+            );
+        };
 
         const exportToExcel = (data, stats, sales, expenses, filter) => {
             const wb = XLSX.utils.book_new();
